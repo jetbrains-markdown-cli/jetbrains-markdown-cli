@@ -1,0 +1,124 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-amd64
+            os: ubuntu-latest
+            target: LinuxX64
+            binDir: linuxX64
+            exe: jetbrains-markdown-cli.kexe
+            smoke: true
+          - name: linux-arm64
+            os: ubuntu-24.04-arm
+            target: LinuxArm64
+            binDir: linuxArm64
+            exe: jetbrains-markdown-cli.kexe
+            smoke: true
+          - name: windows-amd64
+            os: windows-latest
+            target: MingwX64
+            binDir: mingwX64
+            exe: jetbrains-markdown-cli.exe
+            smoke: true
+          - name: macos-arm64
+            os: macos-latest
+            target: MacosArm64
+            binDir: macosArm64
+            exe: jetbrains-markdown-cli.kexe
+            smoke: true
+          # Cross-compiled on the arm64 runner, so no smoke test.
+          - name: macos-amd64
+            os: macos-latest
+            target: MacosX64
+            binDir: macosX64
+            exe: jetbrains-markdown-cli.kexe
+            smoke: false
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v5
+
+      - name: Cache Kotlin/Native toolchain
+        uses: actions/cache@v4
+        with:
+          path: ~/.konan
+          key: konan-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('build.gradle.kts') }}
+
+      - name: Test
+        if: matrix.smoke
+        run: ./gradlew ${{ matrix.binDir }}Test
+
+      - name: Link release executable
+        run: ./gradlew linkReleaseExecutable${{ matrix.target }}
+
+      - name: Smoke test
+        if: matrix.smoke
+        shell: bash
+        run: |
+          out=$(printf '# Hello\n\nsome *markdown*\n' | build/bin/${{ matrix.binDir }}/releaseExecutable/${{ matrix.exe }})
+          echo "$out"
+          [[ "$out" == *"<h1>Hello</h1>"* && "$out" == *"<em>markdown</em>"* ]]
+
+      - name: Package
+        shell: bash
+        run: |
+          name=jetbrains-markdown-cli-${{ matrix.name }}
+          mkdir -p dist/$name
+          if [[ "${{ matrix.name }}" == windows-* ]]; then
+            cp build/bin/${{ matrix.binDir }}/releaseExecutable/${{ matrix.exe }} dist/$name/jetbrains-markdown-cli.exe
+            (cd dist && 7z a $name.zip $name > /dev/null)
+          else
+            cp build/bin/${{ matrix.binDir }}/releaseExecutable/${{ matrix.exe }} dist/$name/jetbrains-markdown-cli
+            chmod +x dist/$name/jetbrains-markdown-cli
+            tar -C dist -czf dist/$name.tar.gz $name
+          fi
+          rm -rf dist/$name
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: jetbrains-markdown-cli-${{ matrix.name }}
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    name: Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes
