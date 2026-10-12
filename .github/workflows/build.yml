@@ -24,12 +24,14 @@ jobs:
             binDir: linuxX64
             exe: jetbrains-markdown-cli.kexe
             smoke: true
+          # Kotlin/Native cannot run on arm64 Linux hosts, so this is cross-compiled
+          # and smoke-tested in the separate test-linux-arm64 job.
           - name: linux-arm64
-            os: ubuntu-24.04-arm
+            os: ubuntu-latest
             target: LinuxArm64
             binDir: linuxArm64
             exe: jetbrains-markdown-cli.kexe
-            smoke: true
+            smoke: false
           - name: windows-amd64
             os: windows-latest
             target: MingwX64
@@ -101,10 +103,26 @@ jobs:
           path: dist/*
           if-no-files-found: error
 
+  test-linux-arm64:
+    name: test linux-arm64 binary
+    needs: build
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          name: jetbrains-markdown-cli-linux-arm64
+
+      - name: Smoke test
+        run: |
+          tar -xzf jetbrains-markdown-cli-linux-arm64.tar.gz
+          out=$(printf '# Hello\n\nsome *markdown*\n' | jetbrains-markdown-cli-linux-arm64/jetbrains-markdown-cli)
+          echo "$out"
+          [[ "$out" == *"<h1>Hello</h1>"* && "$out" == *"<em>markdown</em>"* ]]
+
   release:
     name: Release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: build
+    needs: [build, test-linux-arm64]
     runs-on: ubuntu-latest
     permissions:
       contents: write
