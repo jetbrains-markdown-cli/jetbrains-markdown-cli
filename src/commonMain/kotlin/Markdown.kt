@@ -62,6 +62,7 @@ private class CliFlavour(
  * [metadata] but not over [metadataOverrides].
  *
  * The variable `title` is the document's `<title>`; without it the text of the first heading is used.
+ * `lang` is the `lang` attribute of `<html>`.
  *
  * @throws InvalidMetadataException if a YAML metadata block in [markdown] is not valid YAML
  */
@@ -80,9 +81,10 @@ fun markdownToHtml(
     val context = mergeMetadata(listOf(metadata, documentMetadata, metadataOverrides, variables))
     val title = context["title"]?.let { plainTitle(it, flavour) }?.takeIf { it.isNotEmpty() }
         ?: firstHeadingText(rendered.tree, src).escapeHtml()
+    val lang = context["lang"]?.asText()?.trim()?.takeIf { it.isNotEmpty() }
     return """
         |<!DOCTYPE html>
-        |<html>
+        |<html${if (lang == null) "" else " lang=\"${lang.escapeHtml()}\""}>
         |  <head>
         |    <meta charset="UTF-8">
         |    <title>$title</title>

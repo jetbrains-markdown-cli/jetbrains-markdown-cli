@@ -90,6 +90,7 @@ values to a list).
 | Variable | Used for |
 |----------|----------|
 | `title`  | The `<title>`, as plain text: it is Markdown, so `My *title*` becomes `My title`. Without it the text of the first heading is used |
+| `lang`   | The `lang` attribute of `<html>` |
 
 Not (yet) like pandoc: `--file-scope`, the `sourcefile`/`outputfile` variables, `-M`/`--metadata`, `pagetitle`, the title block in the `<body>`, and finding defaults files in
 the user data directory. Variables are escaped when inserted into the HTML, while pandoc inserts `--variable` values as they are.
@@ -117,9 +118,9 @@ Heading `id`s, indentation of the output and the default GitHub Flavored Markdow
 
 pandoc is much bigger, this tool only converts Markdown to HTML:
 
-- **Template variables**: only [`title`](#template-variables) is used by the `--standalone` skeleton. Other variables
-  that pandoc's default HTML template knows (`author`, `date`, `lang`, `css`, `header-includes`, `include-before`,
-  `include-after`, `toc`, `subtitle`, `abstract`, `math`, ...) can be set, but have no effect. There is no
+- **Template variables**: only the [variables listed above](#template-variables) (`title`, `lang`) are used by the `--standalone` skeleton.
+  Other variables that pandoc's default HTML template knows (`author`, `date`, `css`, `header-includes`,
+  `include-before`, `include-after`, `toc`, `subtitle`, `abstract`, `math`, ...) can be set, but have no effect. There is no
   `--template` option either, so the skeleton cannot be replaced.
 - **Options**: no `--toc`, `-M`/`--metadata`, `--css`, `-H`/`-B`/`-A` (includes), `--wrap`, `--highlight-style`,
   `--mathjax`/`--katex`, `--filter`/`--lua-filter`, `--citeproc`, `--file-scope`, `--resource-path` or `--self-contained`.

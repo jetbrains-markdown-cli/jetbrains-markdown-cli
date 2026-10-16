@@ -297,6 +297,26 @@ class TitleTest {
     }
 }
 
+class SkeletonVariablesTest {
+    private fun text(value: String) = TemplateValue.Text(value)
+
+    private fun html(markdown: String = "# Heading\n", vararg variables: Pair<String, TemplateValue>) =
+        markdownToHtml(markdown, standalone = true, variables = mapOf(*variables))
+
+    @Test
+    fun langIsAnAttributeOfHtml() {
+        assertTrue(html(variables = arrayOf("lang" to text("de-CH"))).startsWith("<!DOCTYPE html>\n<html lang=\"de-CH\">\n"))
+        assertContains(html(variables = arrayOf("lang" to text("\"><script>"))), "<html lang=\"&quot;&gt;&lt;script&gt;\">")
+        assertTrue(html(variables = arrayOf("lang" to text(" "))).startsWith("<!DOCTYPE html>\n<html>\n"))
+    }
+
+    @Test
+    fun nothingChangesWithoutStandalone() {
+        val all = mapOf("lang" to text("en"))
+        assertEquals("<h1 id=\"heading\">Heading</h1>\n", markdownToHtml("# Heading\n", variables = all))
+    }
+}
+
 class MetadataBlockTest {
     private fun text(value: String) = TemplateValue.Text(value)
 
