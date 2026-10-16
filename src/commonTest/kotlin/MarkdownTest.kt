@@ -111,6 +111,41 @@ class MarkdownTest {
     }
 }
 
+class TemplateVariablesTest {
+    private fun text(value: String) = TemplateValue.Text(value)
+
+    @Test
+    fun parsesKeyAndValue() {
+        assertEquals("title" to text("Hello"), parseVariable("title=Hello"))
+        assertEquals("title" to text("Hello"), parseVariable("title:Hello"))
+        assertEquals("title" to text(""), parseVariable("title="))
+    }
+
+    @Test
+    fun splitsAtTheFirstSeparator() {
+        assertEquals("a" to text("b=c:d"), parseVariable("a=b=c:d"))
+        assertEquals("a" to text("b=c"), parseVariable("a:b=c"))
+    }
+
+    @Test
+    fun variableWithoutValueIsTrue() {
+        assertEquals("draft" to TemplateValue.Flag(true), parseVariable("draft"))
+    }
+
+    @Test
+    fun rejectsEmptyName() {
+        assertFailsWith<IllegalArgumentException> { parseVariable("=value") }
+        assertFailsWith<IllegalArgumentException> { parseVariable("") }
+    }
+
+    @Test
+    fun repeatedVariableBecomesList() {
+        val context = variablesOf(listOf(parseVariable("a=1"), parseVariable("b=x"), parseVariable("a=2"), parseVariable("a=3")))
+        assertEquals(text("x"), context["b"])
+        assertEquals(TemplateValue.Items(listOf(text("1"), text("2"), text("3"))), context["a"])
+    }
+}
+
 class MarkdownCliTest {
     private fun run(vararg args: String, input: String = "# Title\n"): String {
         var output = ""
@@ -151,6 +186,19 @@ class MarkdownCliTest {
     @Test
     fun rejectsUnknownFlavour() {
         assertFailsWith<BadParameterValue> { run("--flavour", "bogus") }
+    }
+
+    @Test
+    fun acceptsVariables() {
+        val plain = run()
+        for (option in listOf("-V", "--variable")) {
+            assertEquals(plain, run(option, "title=Hello", option, "draft", option, "title=Again"))
+        }
+    }
+
+    @Test
+    fun rejectsVariableWithoutName() {
+        assertFailsWith<BadParameterValue> { run("-V", "=Hello") }
     }
 
     @Test

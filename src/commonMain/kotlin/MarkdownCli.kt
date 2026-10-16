@@ -1,7 +1,9 @@
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.Context
+import com.github.ajalt.clikt.parameters.options.convert
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.flag
+import com.github.ajalt.clikt.parameters.options.multiple
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.enum
 
@@ -23,7 +25,11 @@ class MarkdownCli(
         .enum<Flavour> { it.cliName }
         .default(Flavour.DEFAULT)
 
+    private val variables by option("-V", "--variable", metavar = "KEY[=VAL]", help = "Set a template variable; without a value it is true. Can be repeated.")
+        .convert { parseVariable(it) }
+        .multiple()
+
     override fun run() {
-        write(markdownToHtml(readInput(), flavour, standalone))
+        write(markdownToHtml(readInput(), flavour, standalone, variablesOf(variables)))
     }
 }

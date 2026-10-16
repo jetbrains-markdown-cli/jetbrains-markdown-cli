@@ -31,11 +31,12 @@ The `<title>` is the text of the first heading.
 
 ## Options
 
-| Option                | Description |
-|-----------------------|-------------|
-| `-s`, `--standalone`  | Produce a complete HTML document (doctype, `<head>`, `<body>`) instead of just the content |
-| `-f`, `--flavour=...` | Markdown flavour: `gfm` (default, GitHub Flavored Markdown like IntelliJ's Markdown plugin), `commonmark` (plain CommonMark) or `space` (JetBrains Space) |
-| `-h`, `--help`        | Show the help and exit |
+| Option                         | Description |
+|--------------------------------|-------------|
+| `-s`, `--standalone`           | Produce a complete HTML document (doctype, `<head>`, `<body>`) instead of just the content |
+| `-f`, `--flavour=...`          | Markdown flavour: `gfm` (default, GitHub Flavored Markdown like IntelliJ's Markdown plugin), `commonmark` (plain CommonMark) or `space` (JetBrains Space) |
+| `-V`, `--variable=KEY[=VAL]`   | Set a template variable like `pandoc --variable`: without a value it is `true`, repeating a key makes a list. Can be repeated |
+| `-h`, `--help`                 | Show the help and exit |
 
 ```sh
 printf '| a |\n|---|\n| 1 |\n' | jetbrains-markdown-cli --flavour commonmark   # no <table>
