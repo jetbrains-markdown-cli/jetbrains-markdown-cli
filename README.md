@@ -85,6 +85,17 @@ printf '# Hello\n' | jetbrains-markdown-cli --standalone -V 'title=Mine & yours'
 #     <title>Mine &amp; yours</title>
 ```
 
+```mermaid
+flowchart TB
+    mf["metadata files"] -->|"1 lowest"| vars
+    doc["YAML block in the document"] -->|"2"| vars
+    dm["metadata: of defaults files"] -->|"3"| vars
+    cli["-V, variables: of defaults files"] -->|"4 highest"| vars
+    doc -->|"the rest of the text"| body["body, rendered by JetBrains/markdown"]
+    vars(["template variables"]) --> page["standalone page: head, title block, TOC, body"]
+    body --> page
+```
+
 Within a method, later settings override earlier ones, and a field of a later layer replaces the whole field of an
 earlier one. The command line overrides defaults files, for variables as well (pandoc would append the command line
 values to a list).
@@ -189,6 +200,20 @@ The names are exact (`GitHub` or `./github` are file names). Styles come in the 
 override earlier ones. A `css` without any value stands for the `default` style, `none` is the way to turn it off.
 Styles are only added with `--standalone`.
 
+The `<head>` is put together in this order, so what comes later overrides what comes before. The
+[highlight.js](#syntax-highlighting) and [Mermaid](#diagrams) parts are only there with `-V highlight` and `-V mermaid`;
+their default look follows the last built-in style of `css`:
+
+```mermaid
+flowchart LR
+    meta["#lt;meta#gt; tags and #lt;title#gt;"]
+    hl["highlight.js #lt;link#gt;s and box rules<br>style follows the last built-in style"]
+    mm["#lt;style#gt; of the diagrams<br>theme follows the last built-in style"]
+    css["the css entries in order:<br>built-in styles as #lt;style#gt;, others as #lt;link#gt;"]
+    scripts["#lt;script#gt;s: highlight.js, then Mermaid"]
+    meta --> hl --> mm --> css --> scripts
+```
+
 ### Syntax highlighting
 
 With `-V highlight` (or `highlight=true`; `false` is off, which is the default, and anything else is an error) the code
@@ -271,6 +296,9 @@ so the diagrams are drawn again when the browser switches.
 The diagrams are `<div class="mermaid">`, not `<pre>`, so the box of code blocks does not apply to them. The
 `<style>` for them comes before the `css` entries and the scripts after, like with [highlighting](#syntax-highlighting),
 and the two work together.
+
+The diagrams above in this README are Mermaid fences too: `jetbrains-markdown-cli -s -V mermaid README.md` draws them (GitHub
+draws them itself).
 
 `mermaid-url` decides which script runs on the page: as with `highlight`, do not render untrusted Markdown with
 `mermaid` unless you set `mermaid-url` (and `-V` wins over the document), ideally pinned to an exact version.
