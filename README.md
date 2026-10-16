@@ -102,6 +102,7 @@ values to a list).
 | `toc`, `toc-title` | The [table of contents](#table-of-contents) |
 | `css`    | The [styles](#styles) of the page: built-in ones by name, or the URLs of stylesheets. A list gives several. Without it, the `default` style is used |
 | `highlight`, `highlight-style`, `highlight-style-dark`, `highlight-url`, `highlight-languages` | [Syntax highlighting](#syntax-highlighting) of code fences with highlight.js |
+| `mermaid`, `mermaid-theme`, `mermaid-theme-dark`, `mermaid-url` | [Diagrams](#diagrams): `mermaid` code fences rendered by Mermaid |
 
 The title block is like the one of pandoc's HTML template:
 
@@ -191,7 +192,7 @@ fences that have a language are highlighted in the browser by [highlight.js](htt
 from a CDN: the page then needs the network (or your own copy, see `highlight-url`), and without JavaScript the code
 stays plain. The output of the fences does not change, highlight.js finds `<code class="language-kotlin">` itself. Only
 fences with a language are highlighted (highlight.js would guess one for the others), and languages it does not know,
-such as `mermaid`, stay plain without a message in the console.
+such as `mermaid` (see [Diagrams](#diagrams)), stay plain without a message in the console.
 
 ```sh
 jetbrains-markdown-cli -s -V highlight README.md                                    # the style fits the css style
@@ -234,6 +235,40 @@ Conflicts with the styles of `css` are avoided like this:
 other variable, so do not render untrusted Markdown with `highlight` unless you set `highlight-url` (and
 `-V` wins over the document), ideally pinned to an exact version.
 
+### Diagrams
+
+With `-V mermaid` (or `mermaid=true`; `false` is off, which is the default, and anything else is an error) the code
+fences of the language `mermaid` are drawn as diagrams in the browser by [Mermaid](https://mermaid.js.org/), which is
+loaded from a CDN: the page then needs the network (or your own copy, see `mermaid-url`; the script is several MB), and
+without JavaScript the diagram stays a code block with its source. The output of the fences does not change, the script
+finds `<code class="language-mermaid">` itself and replaces the code block with the SVG. A diagram Mermaid cannot parse
+stays a code block, without an error drawing.
+
+````sh
+printf '```mermaid\ngraph TD\n  A --> B\n```\n' | jetbrains-markdown-cli -s -V mermaid
+jetbrains-markdown-cli -s -V mermaid -V mermaid-theme=forest README.md
+jetbrains-markdown-cli -s -V mermaid -V mermaid-url=vendor/mermaid README.md   # your own copy
+````
+
+| Variable | Meaning |
+|----------|---------|
+| `mermaid` | Turns it on |
+| `mermaid-theme` | One of Mermaid's themes: `default`, `neutral`, `dark`, `forest`, `base`; anything else is an error. Without it, see below. Used for light and dark unless `mermaid-theme-dark` is set |
+| `mermaid-theme-dark` | The theme for `prefers-color-scheme: dark`; `mermaid-theme` (or `default`) is then the one for light |
+| `mermaid-url` | Where Mermaid comes from, by default `https://cdn.jsdelivr.net/npm/mermaid/dist` (the latest release of the official package; add `@11` or an exact version to the package name to pin it). Either a directory with `mermaid.min.js` (also what cdnjs and unpkg have, or a local copy), or the URL of the script, whatever it is called. It has to be the classic script (`mermaid.min.js`), not the ES module |
+
+Without `mermaid-theme`, the diagrams use `default` on a light page, and `dark` when the browser prefers a dark colour
+scheme and a built-in style of `css` is used (those are light and dark, see [Styles](#styles)). With `css=none` or only
+your own stylesheets the page is not known to be dark, so there is just `default`. Mermaid puts the theme into the SVG,
+so the diagrams are drawn again when the browser switches.
+
+The diagrams are `<div class="mermaid">`, not `<pre>`, so the box of code blocks does not apply to them. The
+`<style>` for them comes before the `css` entries and the scripts after, like with [highlighting](#syntax-highlighting),
+and the two work together.
+
+`mermaid-url` decides which script runs on the page: as with `highlight`, do not render untrusted Markdown with
+`mermaid` unless you set `mermaid-url` (and `-V` wins over the document), ideally pinned to an exact version.
+
 Not (yet) like pandoc: `--file-scope`, the `sourcefile`/`outputfile` variables, `-M`/`--metadata`, `pagetitle`, `title-prefix`, `dir`, the other `<meta>` tags of pandoc's template, and finding defaults files in
 the user data directory. Variables are escaped when inserted into the HTML, while pandoc inserts `--variable` values as they are.
 
@@ -247,8 +282,9 @@ Missing:
 - **Syntax highlighting** of code fences by the IDE's lexers and editor colour scheme, which cannot be reused here.
   Fences are emitted as `<code class="language-xyz">`, and [`-V highlight`](#syntax-highlighting) adds highlight.js, which has its
   own tokens and colours and needs a CDN or a local copy. Another client-side highlighter such as Prism can be added by hand.
-- **Diagram and formula rendering**, such as Mermaid, PlantUML and LaTeX math. The IDE renders them in its browser
+- **Diagram and formula rendering**, such as PlantUML and LaTeX math. The IDE renders them in its browser
   preview through extensions; here the fence is emitted as a plain code block, with the same `language-` class.
+  Only Mermaid is supported, in the browser, with [`-V mermaid`](#diagrams), which needs a CDN or a local copy.
 - **Scripts and the IDE's look**: no JavaScript and no Content-Security-Policy `<meta>`. The [styles](#styles) are
   made from the IDE's preview style but fixed to the IntelliJ Light and Dark themes (switched by the browser), not the
   colours of your editor colour scheme or font size, and there is no IDE setting for a custom stylesheet (use `css`).
@@ -261,7 +297,7 @@ Heading `id`s, indentation of the output and the default GitHub Flavored Markdow
 
 pandoc is much bigger, this tool only converts Markdown to HTML:
 
-- **Template variables**: only the [variables listed above](#template-variables) (`title`, `subtitle`, `author`, `date`, `abstract`, `lang`, `css`, `toc`, `toc-title`, `highlight*`) are
+- **Template variables**: only the [variables listed above](#template-variables) (`title`, `subtitle`, `author`, `date`, `abstract`, `lang`, `css`, `toc`, `toc-title`, `highlight*`, `mermaid*`) are
   used by the `--standalone` skeleton. Other variables that pandoc's default HTML template knows (`header-includes`, `include-before`, `include-after`, `keywords`, `math`, ...) can be set, but have no
   effect. There is no
   `--template` option either, so the skeleton cannot be replaced.

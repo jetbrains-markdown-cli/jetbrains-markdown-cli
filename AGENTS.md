@@ -38,6 +38,8 @@ Where to look in the plugin (all under `plugins/markdown/core/src/org/intellij/p
 - `src/commonMain/kotlin/TableOfContents.kt`: the `<nav id="TOC">` after the title block; the entries come from `--toc`, the `toc` variable only switches the nav, like in pandoc's template.
 - `src/commonMain/kotlin/Styles.kt`: the `css` template variable: built-in style names (`none`, `default`, `intellij`, `github`) to `<style>`, other values to `<link>`.
 - `src/commonMain/kotlin/Highlight.kt`: the `highlight*` template variables: the highlight.js `<link>`s (before the `css` entries), the box rules, and the deferred `<script>`s (after).
+- `src/commonMain/kotlin/Mermaid.kt`: the `mermaid*` template variables: a `<style>` for the diagrams (before the `css` entries) and the deferred `<script>`s (after).
+- `src/commonMain/kotlin/ScriptLocation.kt`: the "directory or script URL" of `highlight-url` and `mermaid-url`.
 - `src/commonMain/kotlin/StyleSheets.kt`: the CSS of the built-in styles, as `const val`s (no resource loading in Kotlin/Native).
 - `src/commonMain/kotlin/PrettyTagRenderer.kt`: indents block tags; leaves `<pre>` content untouched.
 - `src/commonMain/kotlin/TemplateVariables.kt`: `TemplateValue`/`TemplateContext` (pandoc-style template variables) and the `-V` parsing.
@@ -80,7 +82,7 @@ linuxArm64 is cross-compiled and smoke-tested by a separate CI job. Locally you 
   `disableNativeCache` for test executables only; release binaries link fine. Re-check when updating Clikt or Kotlin.
 - Input is normalized to LF before parsing (the library requires it); keep that.
 - **Template variable precedence follows pandoc** (checked against pandoc 3.7): `-V`/`variables` > `metadata:` of defaults files
-  (like `-M`) > the document's YAML blocks > metadata files. Consumed so far, in `markdownToHtml`: `title`, `subtitle`, `author`, `date`, `abstract`, `lang`, `abstract-title`, `css`, `highlight`, `highlight-style`, `highlight-style-dark`, `highlight-url`, `highlight-languages`, `toc`, `toc-title` (`--toc`/`--toc-depth` are options, not variables, as in pandoc).
+  (like `-M`) > the document's YAML blocks > metadata files. Consumed so far, in `markdownToHtml`: `title`, `subtitle`, `author`, `date`, `abstract`, `lang`, `abstract-title`, `css`, `highlight`, `highlight-style`, `highlight-style-dark`, `highlight-url`, `highlight-languages`, `mermaid`, `mermaid-theme`, `mermaid-theme-dark`, `mermaid-url`, `toc`, `toc-title` (`--toc`/`--toc-depth` are options, not variables, as in pandoc).
 - Heading anchors must stay in sync with the plugin's algorithm (lowercase, drop everything but letters, digits,
   `-`, `_` and spaces, spaces → `-`, duplicates get `-1`, `-2`, ...). If the plugin changes, mirror it.
 - CI smoke tests (`build.yml`) assert on exact output fragments such as `<h1 id="hello">Hello</h1>`;
@@ -98,7 +100,17 @@ the rules for IDE-only markup (octicon anchors, front matter header, alerts) plu
 (`expUI_light`/`expUI_dark` in `platform-resources`) and switched with `prefers-color-scheme`. Mirror changes of that
 CSS when the plugin changes. Alerts (`[!NOTE]`) are not rendered by this tool, so they are not styled either.
 
-Diagram and formula rendering (Mermaid, PlantUML, LaTeX math) is not implemented either; those fences stay plain code blocks.
+Diagram and formula rendering is only implemented for Mermaid, and only in the browser: PlantUML and LaTeX math fences stay plain
+code blocks. The opt-in `mermaid` variable adds Mermaid to a standalone page (`Mermaid.kt`, no change to the body: the script
+looks for `<code class="language-mermaid">` and replaces its `<pre>` by a `<div class="mermaid">`). Things to keep in mind there:
+
+- Order in `<head>`: the `<style>` before the `css` entries, the scripts after them, like with `highlight`.
+- Diagrams that `mermaid.parse` rejects stay code blocks (no error drawing, no leftover element Mermaid makes on a failed `render`).
+- Mermaid has the theme as a global setting and bakes it into the SVG, so diagrams are drawn one after the other and again when
+  `prefers-color-scheme` changes. Themes are validated against Mermaid's list because they are embedded in the script.
+- `mermaid-url` works like `highlight-url` (`ScriptLocation.kt`), with `mermaid.min.js` (the classic script, not the ES module).
+- Check a change in a real browser with a local copy of `mermaid.min.js` (`mermaid-url`); headless Chromium does not switch to dark by
+  itself, so the re-drawing on a scheme change is not covered by that.
 
 Syntax highlighting like the IDE's is not implemented. The plugin does it with IntelliJ's own lexers and the editor colour
 scheme (inline `style="color: ..."` per token), which cannot be reused here. Fences are emitted as
