@@ -1,8 +1,12 @@
 # AGENTS.md
 
 Kotlin/Native command line tool: reads Markdown (GFM by default) on stdin, writes HTML to stdout (a complete document with `--standalone`).
-The goal is to produce HTML as close as sensible to what IntelliJ's *Markdown → HTML export* produces
-(minus IDE-only features, see [Differences from the IDE export](#differences-from-the-ide-export)).
+The goal is to be a replacement for `pandoc` when converting Markdown to HTML, using the JetBrains/markdown library,
+for developers who want the same output as the JetBrains IDEs show in their preview. So the command line follows pandoc
+(input/output handling, `--standalone`, template variables, defaults and metadata files), while the HTML is as close as
+sensible to what IntelliJ's *Markdown → HTML export* produces (minus IDE-only features, see
+[Differences from the IDE export](#differences-from-the-ide-export)). It is not meant to cover all of pandoc;
+the README's *Limitations* section lists what is missing compared to the IDE and to pandoc, keep it up to date.
 
 ## Related repositories
 
@@ -83,13 +87,16 @@ Intentionally not implemented, because they only serve the IDE's live preview: `
 `<span>`s in paragraphs, code-fence copy/run buttons, resolving relative links to `file:` URLs, styles/scripts,
 and the Content-Security-Policy `<meta>`.
 
+Diagram and formula rendering (Mermaid, PlantUML, LaTeX math) is not implemented either; those fences stay plain code blocks.
+
 Syntax highlighting is not implemented. The plugin does it with IntelliJ's own lexers and the editor colour scheme
 (inline `style="color: ..."` per token), which cannot be reused here. Fences are emitted as
 `<code class="language-xyz">` so a client-side highlighter (highlight.js, Prism) can be added by the consumer.
 
 ## Conventions
 
-- Keep the README's usage example in sync with the actual output.
+- Keep the README's usage example in sync with the actual output, and its *Limitations* section with what is implemented
+  (e.g. when another template variable or option gets supported).
 - Add or adjust a test in `MarkdownTest.kt` for every output change.
 - Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/): `type(scope): summary`
   with an imperative, lowercase summary (types such as `feat`, `fix`, `docs`, `test`, `ci`, `build`, `refactor`,

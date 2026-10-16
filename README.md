@@ -1,6 +1,13 @@
 # jetbrains-markdown-cli
 
-Command line wrapper around [JetBrains/markdown](https://github.com/JetBrains/markdown).
+A replacement for [pandoc](https://pandoc.org/) for converting Markdown to HTML, built on the
+[JetBrains/markdown](https://github.com/JetBrains/markdown) library.
+
+It is aimed at developers who want to generate the same HTML that the JetBrains IDEs show in their Markdown preview
+(and produce with *Export to HTML*), e.g. in build scripts and CI, without an IDE. The command line follows pandoc
+(input and output handling, `--standalone`, `--variable`, `--defaults`, `--metadata-file`), but the Markdown is parsed
+and rendered by JetBrains/markdown, and the output is shaped like the IDE's, not like pandoc's. It is not a drop-in
+replacement for all of pandoc, see [Limitations](#limitations).
 
 Converts Markdown files to HTML, with the input and output handled like in [pandoc](https://pandoc.org/MANUAL.html#using-pandoc):
 
@@ -86,6 +93,45 @@ values to a list).
 
 Not (yet) like pandoc: `--file-scope`, the `sourcefile`/`outputfile` variables, `-M`/`--metadata`, `pagetitle`, the title block in the `<body>`, and finding defaults files in
 the user data directory. Variables are escaped when inserted into the HTML, while pandoc inserts `--variable` values as they are.
+
+## Limitations
+
+### Compared to the JetBrains IDEs
+
+The HTML aims to be as close as sensible to the IDE's Markdown → HTML export, minus what only makes sense in the IDE.
+Missing:
+
+- **Syntax highlighting** of code fences. The IDE colours tokens with its own lexers and the editor colour scheme, which
+  cannot be reused here. Fences are emitted as `<code class="language-xyz">`, so a client-side highlighter such as
+  highlight.js or Prism can be added to the page.
+- **Diagram and formula rendering**, such as Mermaid, PlantUML and LaTeX math. The IDE renders them in its browser
+  preview through extensions; here the fence is emitted as a plain code block, with the same `language-` class.
+- **Styles and scripts**: no stylesheet (the IDE's preview themes, GitHub-like CSS), no JavaScript, and no
+  Content-Security-Policy `<meta>`.
+- **Preview-only markup**: `md-src-pos` attributes, per-line `<span>`s in paragraphs, and the copy/run buttons on code fences.
+- **Relative links** are left as they are; the IDE resolves them to `file:` URLs.
+
+Heading `id`s, indentation of the output and the default GitHub Flavored Markdown (`--flavour gfm`) do match the IDE.
+
+### Compared to pandoc
+
+pandoc is much bigger, this tool only converts Markdown to HTML:
+
+- **Template variables**: only [`title`](#template-variables) is used by the `--standalone` skeleton. Other variables
+  that pandoc's default HTML template knows (`author`, `date`, `lang`, `css`, `header-includes`, `include-before`,
+  `include-after`, `toc`, `subtitle`, `abstract`, `math`, ...) can be set, but have no effect. There is no
+  `--template` option either, so the skeleton cannot be replaced.
+- **Options**: no `--toc`, `-M`/`--metadata`, `--css`, `-H`/`-B`/`-A` (includes), `--wrap`, `--highlight-style`,
+  `--mathjax`/`--katex`, `--filter`/`--lua-filter`, `--citeproc`, `--file-scope`, `--resource-path` or `--self-contained`.
+  Keys of a [defaults file](#options) that are not supported are ignored with a warning.
+- **Other formats**: Markdown is the only input and HTML the only output; no `-f`/`-t` selection of formats and no
+  `--extension` switches (`-f` here selects the JetBrains Markdown flavour).
+- **Markdown dialect**: the parser is JetBrains/markdown (CommonMark/GFM), not pandoc's Markdown. pandoc extensions such
+  as footnotes, definition lists, `smart` typography, citations, attributes (`{#id .class}`), fenced divs and
+  `tex_math_dollars` are not supported.
+- **Output**: differs in details from pandoc's, e.g. the heading `id`s, the indentation, and the code fence markup
+  (`<pre><code class="language-xyz">` instead of pandoc's `<div class="sourceCode">` with highlighting spans). The title block
+  (`title`, `author`, `date`) is not rendered into the `<body>`.
 
 ## Downloads
 
