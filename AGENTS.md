@@ -35,6 +35,8 @@ Where to look in the plugin (all under `plugins/markdown/core/src/org/intellij/p
 - `src/commonMain/kotlin/Markdown.kt`: `markdownToHtml()`, the `Flavour` enum (commonmark/gfm/space, default = GFM, like the plugin's `MarkdownDefaultFlavour`), the flavour wrapper adding anchored headings and, with `standalone`, the document skeleton.
 - `src/commonMain/kotlin/HeadingAnchors.kt`: port of the plugin's heading anchor logic.
 - `src/commonMain/kotlin/TitleBlock.kt`: the title block at the start of the `<body>` and the `<meta>` tags, like pandoc's HTML template.
+- `src/commonMain/kotlin/Styles.kt`: the `css` template variable: built-in style names (`none`, `default`, `intellij`, `github`) to `<style>`, other values to `<link>`.
+- `src/commonMain/kotlin/StyleSheets.kt`: the CSS of the built-in styles, as `const val`s (no resource loading in Kotlin/Native).
 - `src/commonMain/kotlin/PrettyTagRenderer.kt`: indents block tags; leaves `<pre>` content untouched.
 - `src/commonMain/kotlin/TemplateVariables.kt`: `TemplateValue`/`TemplateContext` (pandoc-style template variables) and the `-V` parsing.
 - `src/commonMain/kotlin/Metadata.kt`: YAML (via [snakeyaml-engine-kmp](https://github.com/krzema12/snakeyaml-engine-kmp)) to `TemplateValue`s, merging of metadata layers, and extracting the document's YAML metadata blocks.
@@ -76,7 +78,7 @@ linuxArm64 is cross-compiled and smoke-tested by a separate CI job. Locally you 
   `disableNativeCache` for test executables only; release binaries link fine. Re-check when updating Clikt or Kotlin.
 - Input is normalized to LF before parsing (the library requires it); keep that.
 - **Template variable precedence follows pandoc** (checked against pandoc 3.7): `-V`/`variables` > `metadata:` of defaults files
-  (like `-M`) > the document's YAML blocks > metadata files. Consumed so far, in `markdownToHtml`: `title`, `subtitle`, `author`, `date`, `abstract`, `lang`, `abstract-title`.
+  (like `-M`) > the document's YAML blocks > metadata files. Consumed so far, in `markdownToHtml`: `title`, `subtitle`, `author`, `date`, `abstract`, `lang`, `abstract-title`, `css`.
 - Heading anchors must stay in sync with the plugin's algorithm (lowercase, drop everything but letters, digits,
   `-`, `_` and spaces, spaces → `-`, duplicates get `-1`, `-2`, ...). If the plugin changes, mirror it.
 - CI smoke tests (`build.yml`) assert on exact output fragments such as `<h1 id="hello">Hello</h1>`;
@@ -85,8 +87,14 @@ linuxArm64 is cross-compiled and smoke-tested by a separate CI job. Locally you 
 ## Differences from the IDE export
 
 Intentionally not implemented, because they only serve the IDE's live preview: `md-src-pos` attributes, per-line
-`<span>`s in paragraphs, code-fence copy/run buttons, resolving relative links to `file:` URLs, styles/scripts,
+`<span>`s in paragraphs, code-fence copy/run buttons, resolving relative links to `file:` URLs, scripts,
 and the Content-Security-Policy `<meta>`.
+
+Styles: the `intellij` style is the plugin's `default.css` (`core/resources/.../extensions/common/baseStyles/`) without
+the rules for IDE-only markup (octicon anchors, front matter header, alerts) plus the colours that
+`PreviewLAFThemeStyles` generates from the IDE theme, here fixed to the IntelliJ Light/Dark theme values
+(`expUI_light`/`expUI_dark` in `platform-resources`) and switched with `prefers-color-scheme`. Mirror changes of that
+CSS when the plugin changes. Alerts (`[!NOTE]`) are not rendered by this tool, so they are not styled either.
 
 Diagram and formula rendering (Mermaid, PlantUML, LaTeX math) is not implemented either; those fences stay plain code blocks.
 

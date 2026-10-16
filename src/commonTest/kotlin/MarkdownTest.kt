@@ -451,6 +451,107 @@ class SkeletonVariablesTest {
     }
 }
 
+class StyleVariableTest {
+    private fun text(value: String) = TemplateValue.Text(value)
+
+    private fun items(vararg values: String) = TemplateValue.Items(values.map(::text))
+
+    private fun html(css: TemplateValue? = null, markdown: String = "# Heading\n") =
+        markdownToHtml(markdown, standalone = true, variables = if (css == null) emptyMap() else mapOf("css" to css))
+
+    private fun style(document: String) = document.substringAfter("<style>", "").substringBefore("</style>")
+
+    @Test
+    fun defaultStyleIsTheIntelliJOne() {
+        val document = html()
+        assertContains(document, "    <title>Heading</title>\n    <style>\n")
+        assertContains(document, "\n    </style>\n  </head>")
+        assertContains(style(document), "      body {\n")
+        assertEquals(style(html()), style(html(text("default"))))
+        assertEquals(style(html(text("intellij"))), style(html(text("default"))))
+    }
+
+    @Test
+    fun blankCssIsTheDefaultStyle() {
+        assertEquals(style(html()), style(html(text(""))))
+        assertEquals(style(html()), style(html(text("  "))))
+        assertEquals(style(html()), style(html(TemplateValue.Items(emptyList()))))
+        assertEquals(style(html()), style(html(TemplateValue.Flag(false))))
+    }
+
+    @Test
+    fun noneHasNoStyleAtAll() {
+        val document = html(text("none"))
+        assertFalse("<style" in document, document)
+        assertFalse("<link" in document, document)
+        assertContains(document, "<title>Heading</title>\n  </head>")
+    }
+
+    @Test
+    fun githubStyleDiffersFromIntelliJ() {
+        val github = style(html(text("github")))
+        assertContains(github, "max-width: 980px;")
+        assertContains(github, "github-markdown-css")
+        assertFalse("JetBrains Mono" in github)
+        assertContains(style(html(text("intellij"))), "JetBrains Mono")
+    }
+
+    @Test
+    fun builtInStylesAreSelfContained() {
+        for (alias in listOf("default", "intellij", "github")) {
+            val css = style(html(text(alias)))
+            assertTrue(css.isNotBlank(), alias)
+            assertEquals(css.count { it == '{' }, css.count { it == '}' }, alias)
+            assertFalse("<link" in html(text(alias)), alias)
+            // The IDE's classes for markup this tool generates.
+            for (selector in listOf(".task-list-item", "span.user-del", "pre code", "header#title-block-header")) {
+                assertContains(css, selector, message = alias)
+            }
+        }
+    }
+
+    @Test
+    fun otherValuesAreLinkedStylesheets() {
+        assertContains(html(text("style.css")), "    <title>Heading</title>\n    <link rel=\"stylesheet\" href=\"style.css\">\n  </head>")
+        assertFalse("<style" in html(text("style.css")))
+        assertContains(html(text("https://example.com/a.css?x=1&y=\"2\"")), "href=\"https://example.com/a.css?x=1&amp;y=&quot;2&quot;\"")
+        assertContains(html(text("  padded.css ")), "href=\"padded.css\"")
+    }
+
+    @Test
+    fun aliasesAreExactNames() {
+        assertContains(html(text("GitHub")), "<link rel=\"stylesheet\" href=\"GitHub\">")
+        assertContains(html(text("./github")), "<link rel=\"stylesheet\" href=\"./github\">")
+    }
+
+    @Test
+    fun aListKeepsItsOrder() {
+        val document = html(items("github", "a.css", "none", "b.css"))
+        val order = Regex("<style>|href=\"([^\"]+)\"").findAll(document).map { it.groupValues[1].ifEmpty { "style" } }.toList()
+        assertEquals(listOf("style", "a.css", "b.css"), order)
+        assertContains(document, "max-width: 980px;")
+    }
+
+    @Test
+    fun noneOnlyDisablesTheDefaultStyleWhenAlone() {
+        val document = html(items("none", "a.css"))
+        assertFalse("<style" in document)
+        assertContains(document, "href=\"a.css\"")
+    }
+
+    @Test
+    fun noStylesWithoutStandalone() {
+        assertEquals("<h1 id=\"heading\">Heading</h1>\n", markdownToHtml("# Heading\n", variables = mapOf("css" to text("github"))))
+    }
+
+    @Test
+    fun styleDoesNotChangeTheBody() {
+        val body = { document: String -> document.substringAfter("<body>").substringBefore("</body>") }
+        assertEquals(body(html(text("none"))), body(html(text("github"))))
+        assertEquals(body(html(text("none"))), body(html()))
+    }
+}
+
 class MetadataBlockTest {
     private fun text(value: String) = TemplateValue.Text(value)
 
@@ -882,6 +983,21 @@ class MarkdownCliTest {
     fun rejectsInvalidMetadataBlockInInput() {
         val error = assertFailsWith<CliktError> { run(input = "---\ntitle: [a\n---\n") }
         assertContains(error.message.orEmpty(), "line 1")
+    }
+
+    @Test
+    fun everyMethodSetsTheStyles() {
+        val files = mapOf("meta.yaml" to "css: [meta.css]\n", "defaults.yaml" to "standalone: true\nvariables:\n  css: [github, extra.css]\n")
+        fun styles(vararg args: String, input: String = "# Heading\n") =
+            run("-s", *args, input = input, files = files).lines().filter { "<link" in it || "<style" in it }.map { it.trim() }
+
+        assertEquals(listOf("<style>"), styles())
+        assertEquals(emptyList(), styles("-V", "css=none"))
+        assertEquals(listOf("<link rel=\"stylesheet\" href=\"a.css\">", "<link rel=\"stylesheet\" href=\"b.css\">"), styles("-V", "css=a.css", "-V", "css=b.css"))
+        assertEquals(listOf("<link rel=\"stylesheet\" href=\"meta.css\">"), styles("--metadata-file", "meta.yaml"))
+        assertEquals(listOf("<link rel=\"stylesheet\" href=\"doc.css\">"), styles(input = "---\ncss: doc.css\n---\n"))
+        assertEquals(listOf("<style>", "<link rel=\"stylesheet\" href=\"extra.css\">"), styles("-d", "defaults.yaml"))
+        assertEquals(emptyList(), styles("-d", "defaults.yaml", "-V", "css=none"))
     }
 
     @Test

@@ -36,6 +36,7 @@ echo '# Hello *world*' | jetbrains-markdown-cli --standalone
 #   <head>
 #     <meta charset="UTF-8">
 #     <title>Hello *world*</title>
+#     <style>…</style>
 #   </head>
 #   <body>
 #     <h1 id="hello-world">Hello <em>world</em></h1>
@@ -44,6 +45,7 @@ echo '# Hello *world*' | jetbrains-markdown-cli --standalone
 ```
 
 The `<title>` is the `title` [template variable](#template-variables), or else the text of the first heading.
+The `<style>` (abbreviated here) is the [default style](#styles), which `-V css=none` leaves out.
 
 ## Options
 
@@ -95,6 +97,7 @@ values to a list).
 | `date`   | `<p class="date">` in the title block (Markdown inlines) and `<meta name="dcterms.date">` in the `<head>` |
 | `abstract` | `<div class="abstract">` in the title block, titled `abstract-title` (default `Abstract`). It is Markdown blocks |
 | `lang`   | The `lang` attribute of `<html>` |
+| `css`    | The [styles](#styles) of the page: built-in ones by name, or the URLs of stylesheets. A list gives several. Without it, the `default` style is used |
 
 The title block is like the one of pandoc's HTML template:
 
@@ -108,6 +111,7 @@ printf -- '---\ntitle: My document\nauthor: [Ann, Bob]\ndate: 2026-01-02\n---\n'
 #     <meta name="author" content="Bob">
 #     <meta name="dcterms.date" content="2026-01-02">
 #     <title>My document</title>
+#     <style>…</style>
 #   </head>
 #   <body>
 #     <header id="title-block-header">
@@ -119,6 +123,30 @@ printf -- '---\ntitle: My document\nauthor: [Ann, Bob]\ndate: 2026-01-02\n---\n'
 #   </body>
 # </html>
 ```
+
+### Styles
+
+The `css` variable is a list like in pandoc's template, but besides the URLs of stylesheets, which become
+`<link rel="stylesheet" href="...">`, it knows built-in styles, which are put into the `<head>` as a `<style>` element
+(so the document stays self-contained) when named:
+
+| Name       | Style |
+|------------|-------|
+| `none`     | No style at all |
+| `default`  | The style used without `css`; the same as `intellij` for now |
+| `intellij` | The style of the IntelliJ Markdown preview: its `default.css` with the colours of the IDE's light and dark themes (picked by the browser's `prefers-color-scheme`, not by an IDE setting) |
+| `github`   | GitHub's look, based on [github-markdown-css](https://github.com/sindresorhus/github-markdown-css), light and dark as well |
+
+```sh
+printf '# Hello\n' | jetbrains-markdown-cli -s -V css=github            # the GitHub style
+printf '# Hello\n' | jetbrains-markdown-cli -s -V css=none              # no style
+printf '# Hello\n' | jetbrains-markdown-cli -s -V css=github -V css=my.css   # GitHub's, then yours, which can override it
+printf '# Hello\n' | jetbrains-markdown-cli -s -V css=none -V css=my.css     # only yours
+```
+
+The names are exact (`GitHub` or `./github` are file names). Styles come in the order of the list, so later ones
+override earlier ones. A `css` without any value stands for the `default` style, `none` is the way to turn it off.
+Styles are only added with `--standalone`.
 
 Not (yet) like pandoc: `--file-scope`, the `sourcefile`/`outputfile` variables, `-M`/`--metadata`, `pagetitle`, `title-prefix`, `dir`, the other `<meta>` tags of pandoc's template, and finding defaults files in
 the user data directory. Variables are escaped when inserted into the HTML, while pandoc inserts `--variable` values as they are.
@@ -135,8 +163,9 @@ Missing:
   highlight.js or Prism can be added to the page.
 - **Diagram and formula rendering**, such as Mermaid, PlantUML and LaTeX math. The IDE renders them in its browser
   preview through extensions; here the fence is emitted as a plain code block, with the same `language-` class.
-- **Styles and scripts**: no stylesheet (the IDE's preview themes, GitHub-like CSS), no JavaScript, and no
-  Content-Security-Policy `<meta>`.
+- **Scripts and the IDE's look**: no JavaScript and no Content-Security-Policy `<meta>`. The [styles](#styles) are
+  made from the IDE's preview style but fixed to the IntelliJ Light and Dark themes (switched by the browser), not the
+  colours of your editor colour scheme or font size, and there is no IDE setting for a custom stylesheet (use `css`).
 - **Preview-only markup**: `md-src-pos` attributes, per-line `<span>`s in paragraphs, and the copy/run buttons on code fences.
 - **Relative links** are left as they are; the IDE resolves them to `file:` URLs.
 
@@ -146,9 +175,8 @@ Heading `id`s, indentation of the output and the default GitHub Flavored Markdow
 
 pandoc is much bigger, this tool only converts Markdown to HTML:
 
-- **Template variables**: only the [variables listed above](#template-variables) (`title`, `subtitle`, `author`, `date`, `abstract`, `lang`) are
-  used by the `--standalone` skeleton. Other variables that pandoc's default HTML template knows (`css`,
-  `header-includes`, `include-before`, `include-after`, `toc`, `keywords`, `math`, ...) can be set, but have no
+- **Template variables**: only the [variables listed above](#template-variables) (`title`, `subtitle`, `author`, `date`, `abstract`, `lang`, `css`) are
+  used by the `--standalone` skeleton. Other variables that pandoc's default HTML template knows (`header-includes`, `include-before`, `include-after`, `toc`, `keywords`, `math`, ...) can be set, but have no
   effect. There is no
   `--template` option either, so the skeleton cannot be replaced.
 - **Options**: no `--toc`, `-M`/`--metadata`, `--css`, `-H`/`-B`/`-A` (includes), `--wrap`, `--highlight-style`,
