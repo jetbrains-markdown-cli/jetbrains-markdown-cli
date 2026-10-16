@@ -27,16 +27,7 @@ echo '# Hello *world*' | jetbrains-markdown-cli --standalone
 # </html>
 ```
 
-The `<title>` is the text of the first heading.
-
-A [YAML metadata block](https://pandoc.org/MANUAL.html#extension-yaml_metadata_block) at the start of the document
-(or after a blank line) is not part of the output; it holds the document's metadata:
-
-```markdown
----
-title: My document
----
-```
+The `<title>` is the `title` [template variable](#template-variables), or else the text of the first heading.
 
 ## Options
 
@@ -52,6 +43,38 @@ title: My document
 ```sh
 printf '| a |\n|---|\n| 1 |\n' | jetbrains-markdown-cli --flavour commonmark   # no <table>
 ```
+
+## Template variables
+
+Like in pandoc, the document skeleton of `--standalone` output has template variables, which can be set in four ways
+(highest precedence first):
+
+| Method | Example |
+|--------|---------|
+| `-V`/`--variable` on the command line, or `variables:` in a [defaults file](https://pandoc.org/MANUAL.html#default-files) | `-V title="My document"` |
+| `metadata:` in a defaults file | `metadata: {title: My document}` |
+| A [YAML metadata block](https://pandoc.org/MANUAL.html#extension-yaml_metadata_block) in the document (not part of the output) | `---`, `title: My document`, `---` at the start of the input |
+| `--metadata-file` on the command line, or `metadata-files:` in a defaults file | `--metadata-file meta.yaml` |
+
+```sh
+printf -- '---\ntitle: My *document*\n---\n\n# Hello\n' | jetbrains-markdown-cli --standalone | grep title
+#     <title>My document</title>
+printf '# Hello\n' | jetbrains-markdown-cli --standalone -V 'title=Mine & yours' | grep title
+#     <title>Mine &amp; yours</title>
+```
+
+Within a method, later settings override earlier ones, and a field of a later layer replaces the whole field of an
+earlier one. The command line overrides defaults files, for variables as well (pandoc would append the command line
+values to a list).
+
+### Supported variables
+
+| Variable | Used for |
+|----------|----------|
+| `title`  | The `<title>`, as plain text: it is Markdown, so `My *title*` becomes `My title`. Without it the text of the first heading is used |
+
+Not (yet) like pandoc: `-M`/`--metadata`, `pagetitle`, the title block in the `<body>`, and finding defaults files in
+the user data directory. Variables are escaped when inserted into the HTML, while pandoc inserts `--variable` values as they are.
 
 ## Downloads
 

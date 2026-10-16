@@ -6,6 +6,17 @@ sealed interface TemplateValue {
     data class Fields(val values: Map<String, TemplateValue>) : TemplateValue
 }
 
+/**
+ * The text of the value as pandoc inserts it into a template: lists are concatenated,
+ * `true` is `true` and `false` and maps are empty.
+ */
+internal fun TemplateValue.asText(): String = when (this) {
+    is TemplateValue.Text -> value
+    is TemplateValue.Flag -> if (value) "true" else ""
+    is TemplateValue.Items -> values.joinToString("") { it.asText() }
+    is TemplateValue.Fields -> ""
+}
+
 /** Template variables by name. */
 typealias TemplateContext = Map<String, TemplateValue>
 

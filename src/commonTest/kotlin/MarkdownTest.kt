@@ -218,6 +218,85 @@ class MetadataTest {
     }
 }
 
+class TitleTest {
+    private fun text(value: String) = TemplateValue.Text(value)
+
+    private fun title(
+        markdown: String = "# Heading\n",
+        variables: TemplateContext = emptyMap(),
+        metadata: TemplateContext = emptyMap(),
+        metadataOverrides: TemplateContext = emptyMap(),
+    ): String {
+        val html = markdownToHtml(markdown, standalone = true, variables = variables, metadata = metadata, metadataOverrides = metadataOverrides)
+        return html.substringAfter("<title>").substringBefore("</title>")
+    }
+
+    @Test
+    fun fallsBackToFirstHeading() {
+        assertEquals("Heading", title())
+        assertEquals("", title("text\n"))
+    }
+
+    @Test
+    fun titleVariableIsTheDocumentTitle() {
+        assertEquals("Mine", title(variables = mapOf("title" to text("Mine"))))
+        assertEquals("Mine", title(metadata = mapOf("title" to text("Mine"))))
+        assertEquals("Mine", title("---\ntitle: Mine\n---\n\n# Heading\n"))
+    }
+
+    @Test
+    fun titleDoesNotChangeTheBody() {
+        val html = markdownToHtml("# Heading\n", standalone = true, variables = mapOf("title" to text("Mine")))
+        assertContains(html, "<h1 id=\"heading\">Heading</h1>")
+        assertEquals("<h1 id=\"heading\">Heading</h1>\n", markdownToHtml("# Heading\n", variables = mapOf("title" to text("Mine"))))
+    }
+
+    @Test
+    fun variablesBeatMetadataOverridesBeatDocumentBeatMetadata() {
+        val document = "---\ntitle: document\n---\n"
+        val metadata = mapOf("title" to text("metadata"))
+        val overrides = mapOf("title" to text("overrides"))
+        val variables = mapOf("title" to text("variables"))
+        assertEquals("metadata", title(metadata = metadata))
+        assertEquals("document", title(document, metadata = metadata))
+        assertEquals("overrides", title(document, metadata = metadata, metadataOverrides = overrides))
+        assertEquals("variables", title(document, metadata = metadata, metadataOverrides = overrides, variables = variables))
+    }
+
+    @Test
+    fun titleIsMarkdownReducedToPlainText() {
+        assertEquals("My title with a link", title(variables = mapOf("title" to text("My *title* with [a link](https://example.com)"))))
+        assertEquals("a &lt; b", title(variables = mapOf("title" to text("`a < b`"))))
+    }
+
+    @Test
+    fun titleIsEscaped() {
+        assertEquals("A &amp; B &lt; c", title(variables = mapOf("title" to text("A & B < c"))))
+        assertEquals("&lt;/title&gt;&lt;script&gt;", title(variables = mapOf("title" to text("\\</title>\\<script>"))))
+    }
+
+    @Test
+    fun multiLineAndListTitles() {
+        assertEquals("one two", title(variables = mapOf("title" to text("one\ntwo"))))
+        assertEquals("onetwo", title(variables = mapOf("title" to TemplateValue.Items(listOf(text("one"), text("two"))))))
+        assertEquals("true", title(variables = mapOf("title" to TemplateValue.Flag(true))))
+    }
+
+    @Test
+    fun blankTitleFallsBackToFirstHeading() {
+        assertEquals("Heading", title(variables = mapOf("title" to text(""))))
+        assertEquals("Heading", title("---\ntitle:\n---\n\n# Heading\n"))
+        assertEquals("Heading", title(variables = mapOf("title" to TemplateValue.Flag(false))))
+    }
+
+    @Test
+    fun titleDoesNotDisturbHeadingIds() {
+        val html = markdownToHtml("# Same\n\n# Same\n", standalone = true, variables = mapOf("title" to text("# Same")))
+        assertContains(html, "<h1 id=\"same\">Same</h1>")
+        assertContains(html, "<h1 id=\"same-1\">Same</h1>")
+    }
+}
+
 class MetadataBlockTest {
     private fun text(value: String) = TemplateValue.Text(value)
 
@@ -509,6 +588,40 @@ class MarkdownCliTest {
         val invalid = assertFailsWith<CliktError> { run("-d", "bad.yaml", files = mapOf("bad.yaml" to "flavour: bogus")) }
         assertContains(invalid.message.orEmpty(), "bad.yaml")
         assertContains(invalid.message.orEmpty(), "bogus")
+    }
+
+    @Test
+    fun everyMethodSetsTheTitle() {
+        val files = mapOf(
+            "meta.yaml" to "title: From a metadata file\n",
+            "defaults-variables.yaml" to "variables:\n  title: From the variables of a defaults file\n",
+            "defaults-metadata.yaml" to "metadata:\n  title: From the metadata of a defaults file\n",
+            "defaults-files.yaml" to "metadata-files: [meta.yaml]\n",
+        )
+        fun title(vararg args: String, input: String = "# Heading\n") =
+            run("-s", *args, input = input, files = files).substringAfter("<title>").substringBefore("</title>")
+        assertEquals("Heading", title())
+        assertEquals("From the command line", title("-V", "title=From the command line"))
+        assertEquals("From a metadata file", title("--metadata-file", "meta.yaml"))
+        assertEquals("From the variables of a defaults file", title("-d", "defaults-variables"))
+        assertEquals("From the metadata of a defaults file", title("-d", "defaults-metadata"))
+        assertEquals("From a metadata file", title("-d", "defaults-files"))
+        assertEquals("From the document", title(input = "---\ntitle: From the document\n---\n"))
+    }
+
+    @Test
+    fun titlePrecedenceLikePandoc() {
+        val files = mapOf(
+            "meta.yaml" to "title: file\n",
+            "defaults.yaml" to "metadata:\n  title: defaults metadata\nvariables:\n  title: defaults variable\n",
+            "defaults-metadata.yaml" to "metadata:\n  title: defaults metadata\n",
+        )
+        fun title(vararg args: String) = run("-s", *args, input = "---\ntitle: document\n---\n", files = files)
+            .substringAfter("<title>").substringBefore("</title>")
+        assertEquals("document", title("--metadata-file", "meta.yaml"))
+        assertEquals("defaults metadata", title("--metadata-file", "meta.yaml", "-d", "defaults-metadata"))
+        assertEquals("defaults variable", title("-d", "defaults"))
+        assertEquals("command line", title("-d", "defaults", "-V", "title=command line"))
     }
 
     @Test

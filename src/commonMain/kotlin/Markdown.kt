@@ -61,6 +61,8 @@ private class CliFlavour(
  * YAML metadata blocks in the document are not part of the output and, being metadata, take precedence over
  * [metadata] but not over [metadataOverrides].
  *
+ * The variable `title` is the document's `<title>`; without it the text of the first heading is used.
+ *
  * @throws InvalidMetadataException if a YAML metadata block in [markdown] is not valid YAML
  */
 fun markdownToHtml(
@@ -71,9 +73,31 @@ fun markdownToHtml(
     metadata: TemplateContext = emptyMap(),
     metadataOverrides: TemplateContext = emptyMap(),
 ): String {
-    // The parser requires LF line endings, see the JetBrains/markdown README.
-    val normalized = markdown.replace("\r\n", "\n").replace("\r", "\n")
-    val (src, _) = extractMetadataBlocks(normalized)
+    val (src, documentMetadata) = extractMetadataBlocks(normalizeLineEndings(markdown))
+    val rendered = render(src, flavour, standalone)
+    // Every block starts with a line break; the first one is not wanted at the start of the output.
+    if (!standalone) return rendered.body.trimStart('\n').let { if (it.isEmpty()) it else it + "\n" }
+    val context = mergeMetadata(listOf(metadata, documentMetadata, metadataOverrides, variables))
+    val title = context["title"]?.let { plainTitle(it, flavour) }?.takeIf { it.isNotEmpty() }
+        ?: firstHeadingText(rendered.tree, src).escapeHtml()
+    return """
+        |<!DOCTYPE html>
+        |<html>
+        |  <head>
+        |    <meta charset="UTF-8">
+        |    <title>$title</title>
+        |  </head>${rendered.body}
+        |</html>
+        |
+    """.trimMargin()
+}
+
+// The parser requires LF line endings, see the JetBrains/markdown README.
+private fun normalizeLineEndings(text: String) = text.replace("\r\n", "\n").replace("\r", "\n")
+
+private class Rendered(val tree: ASTNode, val body: String)
+
+private fun render(src: String, flavour: Flavour, standalone: Boolean): Rendered {
     val descriptor = CliFlavour(standalone, flavour.create())
     val tree = MarkdownParser(descriptor, cancellationToken = CancellationToken.NonCancellable)
         .buildMarkdownTreeFromString(src as CharSequence)
@@ -81,19 +105,16 @@ fun markdownToHtml(
         HtmlGenerator.DefaultTagRenderer(DUMMY_ATTRIBUTES_CUSTOMIZER, false),
         baseLevel = if (standalone) 1 else 0,
     )
-    // Every block starts with a line break; the first one is not wanted at the start of the output.
-    val body = HtmlGenerator(src, tree, descriptor).generateHtml(renderer)
-    if (!standalone) return body.trimStart('\n').let { if (it.isEmpty()) it else it + "\n" }
-    return """
-        |<!DOCTYPE html>
-        |<html>
-        |  <head>
-        |    <meta charset="UTF-8">
-        |    <title>${firstHeadingText(tree, src).escapeHtml()}</title>
-        |  </head>$body
-        |</html>
-        |
-    """.trimMargin()
+    return Rendered(tree, HtmlGenerator(src, tree, descriptor).generateHtml(renderer))
+}
+
+/**
+ * The HTML-escaped plain text of a title, which is Markdown like in pandoc: `My *title*` is `My title`.
+ * The value is escaped unlike in pandoc, where `--variable` values are inserted into the template as they are.
+ */
+private fun plainTitle(title: TemplateValue, flavour: Flavour): String {
+    val html = render(normalizeLineEndings(title.asText()), flavour, standalone = false).body
+    return html.replace(Regex("<[^>]*>"), "").replace(Regex("\\s+"), " ").trim()
 }
 
 private fun firstHeadingText(root: ASTNode, src: String): String {

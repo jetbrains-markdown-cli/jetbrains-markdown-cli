@@ -83,6 +83,10 @@ jobs:
           [[ "$out" == *"<h1 id=\"hello\">Hello</h1>"* && "$out" == *"<em>markdown</em>"* ]]
           out=$(printf '# Hello\n' | build/bin/${{ matrix.binDir }}/releaseExecutable/${{ matrix.exe }} --standalone)
           [[ "$out" == "<!DOCTYPE html>"* && "$out" == *"<title>Hello</title>"* ]]
+          out=$(printf -- '---\ntitle: Mine\n---\n\n# Hello\n' | build/bin/${{ matrix.binDir }}/releaseExecutable/${{ matrix.exe }} --standalone)
+          [[ "$out" == *"<title>Mine</title>"* && "$out" != *"<hr"* ]]
+          out=$(printf '# Hello\n' | build/bin/${{ matrix.binDir }}/releaseExecutable/${{ matrix.exe }} --standalone -V title=Variable)
+          [[ "$out" == *"<title>Variable</title>"* ]]
 
       - name: Package
         shell: bash
@@ -122,6 +126,10 @@ jobs:
           [[ "$out" == *"<h1 id=\"hello\">Hello</h1>"* && "$out" == *"<em>markdown</em>"* ]]
           out=$(printf '# Hello\n' | jetbrains-markdown-cli-linux-arm64/jetbrains-markdown-cli --standalone)
           [[ "$out" == "<!DOCTYPE html>"* && "$out" == *"<title>Hello</title>"* ]]
+          out=$(printf -- '---\ntitle: Mine\n---\n\n# Hello\n' | jetbrains-markdown-cli-linux-arm64/jetbrains-markdown-cli --standalone)
+          [[ "$out" == *"<title>Mine</title>"* && "$out" != *"<hr"* ]]
+          out=$(printf '# Hello\n' | jetbrains-markdown-cli-linux-arm64/jetbrains-markdown-cli --standalone -V title=Variable)
+          [[ "$out" == *"<title>Variable</title>"* ]]
 
   release:
     name: Release
