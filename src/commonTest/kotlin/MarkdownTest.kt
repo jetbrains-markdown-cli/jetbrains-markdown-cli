@@ -245,9 +245,7 @@ class TitleTest {
     }
 
     @Test
-    fun titleDoesNotChangeTheBody() {
-        val html = markdownToHtml("# Heading\n", standalone = true, variables = mapOf("title" to text("Mine")))
-        assertContains(html, "<h1 id=\"heading\">Heading</h1>")
+    fun titleDoesNotChangeTheFragment() {
         assertEquals("<h1 id=\"heading\">Heading</h1>\n", markdownToHtml("# Heading\n", variables = mapOf("title" to text("Mine"))))
     }
 
@@ -311,8 +309,73 @@ class SkeletonVariablesTest {
     }
 
     @Test
+    fun titleStartsTheBodyWithATitleBlock() {
+        assertContains(
+            html(variables = arrayOf("title" to text("My *title*"))),
+            "  <body>\n    <header id=\"title-block-header\">\n      <h1 class=\"title\">My <em>title</em></h1>\n" +
+                "    </header>\n    <h1 id=\"heading\">Heading</h1>\n  </body>",
+        )
+    }
+
+    @Test
+    fun titleBlockInEmptyDocument() {
+        assertContains(
+            markdownToHtml("", standalone = true, variables = mapOf("title" to text("T"))),
+            "  <body>\n    <header id=\"title-block-header\">\n      <h1 class=\"title\">T</h1>\n    </header>\n  </body>",
+        )
+    }
+
+    @Test
+    fun noTitleBlockWithoutTitleVariable() {
+        val html = html(variables = arrayOf("author" to text("A")))
+        assertFalse("<header" in html, html)
+        assertContains(html, "  <body>\n    <h1 id=\"heading\">")
+    }
+
+    @Test
+    fun blockMarkdownInTheTitleIsReducedToText() {
+        assertContains(html(variables = arrayOf("title" to text("# Same"))), "<h1 class=\"title\">Same</h1>")
+    }
+
+    @Test
+    fun titleBlockHasAuthors() {
+        assertContains(
+            html(
+                "# Heading\n",
+                "title" to text("T"),
+                "author" to TemplateValue.Items(listOf(text("Ann *A*"), TemplateValue.Fields(mapOf("name" to text("Bob"))), text(""))),
+            ),
+            """
+            |    <header id="title-block-header">
+            |      <h1 class="title">T</h1>
+            |      <p class="author">Ann <em>A</em></p>
+            |      <p class="author">Bob</p>
+            |    </header>
+            |    <h1 id="heading">Heading</h1>
+            """.trimMargin(),
+        )
+    }
+
+    @Test
+    fun authorsFromYamlMetadata() {
+        val html = markdownToHtml("---\ntitle: T\nauthor:\n  - A\n  - B\n---\n\ntext\n", standalone = true)
+        assertContains(html, "<p class=\"author\">A</p>\n      <p class=\"author\">B</p>")
+    }
+
+    @Test
+    fun authorsAreMetaTags() {
+        val document = html(variables = arrayOf("author" to TemplateValue.Items(listOf(text("Ann *A*"), text("Bob \"B\"")))))
+        assertContains(
+            document,
+            "    <meta charset=\"UTF-8\">\n    <meta name=\"author\" content=\"Ann A\">\n" +
+                "    <meta name=\"author\" content=\"Bob &quot;B&quot;\">\n    <title>Heading</title>",
+        )
+        assertFalse("<meta name=\"author\"" in html(), "no author, no meta")
+    }
+
+    @Test
     fun nothingChangesWithoutStandalone() {
-        val all = mapOf("lang" to text("en"))
+        val all = mapOf("title" to text("T"), "author" to text("A"), "lang" to text("en"))
         assertEquals("<h1 id=\"heading\">Heading</h1>\n", markdownToHtml("# Heading\n", variables = all))
     }
 }

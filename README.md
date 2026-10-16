@@ -89,10 +89,33 @@ values to a list).
 
 | Variable | Used for |
 |----------|----------|
-| `title`  | The `<title>`, as plain text: it is Markdown, so `My *title*` becomes `My title`. Without it the text of the first heading is used |
+| `title`  | The `<title>`, as plain text: it is Markdown, so `My *title*` becomes `My title`. Without it the text of the first heading is used. Also starts the title block in the `<body>`, which only exists with a `title` |
+| `author` | `<p class="author">` in the title block, one per author, and a `<meta name="author">` in the `<head>`. A list gives several authors; a map is its `name` |
 | `lang`   | The `lang` attribute of `<html>` |
 
-Not (yet) like pandoc: `--file-scope`, the `sourcefile`/`outputfile` variables, `-M`/`--metadata`, `pagetitle`, the title block in the `<body>`, and finding defaults files in
+The title block is like the one of pandoc's HTML template:
+
+```sh
+printf -- '---\ntitle: My document\nauthor: [Ann, Bob]\n---\n' | jetbrains-markdown-cli --standalone -V lang=en
+# <!DOCTYPE html>
+# <html lang="en">
+#   <head>
+#     <meta charset="UTF-8">
+#     <meta name="author" content="Ann">
+#     <meta name="author" content="Bob">
+#     <title>My document</title>
+#   </head>
+#   <body>
+#     <header id="title-block-header">
+#       <h1 class="title">My document</h1>
+#       <p class="author">Ann</p>
+#       <p class="author">Bob</p>
+#     </header>
+#   </body>
+# </html>
+```
+
+Not (yet) like pandoc: `--file-scope`, the `sourcefile`/`outputfile` variables, `-M`/`--metadata`, `pagetitle`, `title-prefix`, `dir`, the other `<meta>` tags of pandoc's template, and finding defaults files in
 the user data directory. Variables are escaped when inserted into the HTML, while pandoc inserts `--variable` values as they are.
 
 ## Limitations
@@ -118,9 +141,10 @@ Heading `id`s, indentation of the output and the default GitHub Flavored Markdow
 
 pandoc is much bigger, this tool only converts Markdown to HTML:
 
-- **Template variables**: only the [variables listed above](#template-variables) (`title`, `lang`) are used by the `--standalone` skeleton.
-  Other variables that pandoc's default HTML template knows (`author`, `date`, `css`, `header-includes`,
-  `include-before`, `include-after`, `toc`, `subtitle`, `abstract`, `math`, ...) can be set, but have no effect. There is no
+- **Template variables**: only the [variables listed above](#template-variables) (`title`, `author`, `lang`) are used by the `--standalone`
+  skeleton. Other variables that pandoc's default HTML template knows (`date`, `css`, `header-includes`,
+  `include-before`, `include-after`, `toc`, `keywords`, `subtitle`, `abstract`, `math`, ...) can be set, but have no
+  effect. There is no
   `--template` option either, so the skeleton cannot be replaced.
 - **Options**: no `--toc`, `-M`/`--metadata`, `--css`, `-H`/`-B`/`-A` (includes), `--wrap`, `--highlight-style`,
   `--mathjax`/`--katex`, `--filter`/`--lua-filter`, `--citeproc`, `--file-scope`, `--resource-path` or `--self-contained`.
@@ -131,8 +155,8 @@ pandoc is much bigger, this tool only converts Markdown to HTML:
   as footnotes, definition lists, `smart` typography, citations, attributes (`{#id .class}`), fenced divs and
   `tex_math_dollars` are not supported.
 - **Output**: differs in details from pandoc's, e.g. the heading `id`s, the indentation, and the code fence markup
-  (`<pre><code class="language-xyz">` instead of pandoc's `<div class="sourceCode">` with highlighting spans). The title block
-  (`title`, `author`, `date`) is not rendered into the `<body>`.
+  (`<pre><code class="language-xyz">` instead of pandoc's `<div class="sourceCode">` with highlighting spans). The `<head>` has no
+  `generator`, `viewport` or `description` `<meta>` and the `<html>` element no `xmlns`/`xml:lang`.
 
 ## Downloads
 

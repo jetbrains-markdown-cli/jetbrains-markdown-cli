@@ -61,8 +61,9 @@ private class CliFlavour(
  * YAML metadata blocks in the document are not part of the output and, being metadata, take precedence over
  * [metadata] but not over [metadataOverrides].
  *
- * The variable `title` is the document's `<title>`; without it the text of the first heading is used.
- * `lang` is the `lang` attribute of `<html>`.
+ * The variable `title` is the document's `<title>`; without it the text of the first heading is used. With a `title`
+ * the `<body>` starts with a title block (see [titleBlock]). `author` also becomes `<meta>` tags, and
+ * `lang` the `lang` attribute of `<html>`.
  *
  * @throws InvalidMetadataException if a YAML metadata block in [markdown] is not valid YAML
  */
@@ -79,43 +80,48 @@ fun markdownToHtml(
     // Every block starts with a line break; the first one is not wanted at the start of the output.
     if (!standalone) return rendered.body.trimStart('\n').let { if (it.isEmpty()) it else it + "\n" }
     val context = mergeMetadata(listOf(metadata, documentMetadata, metadataOverrides, variables))
-    val title = context["title"]?.let { plainTitle(it, flavour) }?.takeIf { it.isNotEmpty() }
+    val title = context["title"]?.let { plainText(it, flavour) }?.takeIf { it.isNotEmpty() }
         ?: firstHeadingText(rendered.tree, src).escapeHtml()
     val lang = context["lang"]?.asText()?.trim()?.takeIf { it.isNotEmpty() }
+    val head = listOf("    <meta charset=\"UTF-8\">") + metaTags(context, flavour) + "    <title>$title</title>"
     return """
         |<!DOCTYPE html>
         |<html${if (lang == null) "" else " lang=\"${lang.escapeHtml()}\""}>
         |  <head>
-        |    <meta charset="UTF-8">
-        |    <title>$title</title>
-        |  </head>${rendered.body}
+        |${head.joinToString("\n")}
+        |  </head>${withTitleBlock(rendered.body, titleBlock(context, flavour))}
         |</html>
         |
     """.trimMargin()
 }
 
 // The parser requires LF line endings, see the JetBrains/markdown README.
-private fun normalizeLineEndings(text: String) = text.replace("\r\n", "\n").replace("\r", "\n")
+internal fun normalizeLineEndings(text: String) = text.replace("\r\n", "\n").replace("\r", "\n")
 
-private class Rendered(val tree: ASTNode, val body: String)
+internal class Rendered(val tree: ASTNode, val body: String)
 
-private fun render(src: String, flavour: Flavour, standalone: Boolean): Rendered {
+internal fun render(
+    src: String,
+    flavour: Flavour,
+    standalone: Boolean,
+    baseLevel: Int = if (standalone) 1 else 0,
+): Rendered {
     val descriptor = CliFlavour(standalone, flavour.create())
     val tree = MarkdownParser(descriptor, cancellationToken = CancellationToken.NonCancellable)
         .buildMarkdownTreeFromString(src as CharSequence)
     val renderer = PrettyTagRenderer(
         HtmlGenerator.DefaultTagRenderer(DUMMY_ATTRIBUTES_CUSTOMIZER, false),
-        baseLevel = if (standalone) 1 else 0,
+        baseLevel = baseLevel,
     )
     return Rendered(tree, HtmlGenerator(src, tree, descriptor).generateHtml(renderer))
 }
 
 /**
- * The HTML-escaped plain text of a title, which is Markdown like in pandoc: `My *title*` is `My title`.
+ * The HTML-escaped plain text of a title or other metadata value, which is Markdown like in pandoc: `My *title*` is `My title`.
  * The value is escaped unlike in pandoc, where `--variable` values are inserted into the template as they are.
  */
-private fun plainTitle(title: TemplateValue, flavour: Flavour): String {
-    val html = render(normalizeLineEndings(title.asText()), flavour, standalone = false).body
+internal fun plainText(value: TemplateValue, flavour: Flavour): String {
+    val html = render(normalizeLineEndings(value.asText()), flavour, standalone = false).body
     return html.replace(Regex("<[^>]*>"), "").replace(Regex("\\s+"), " ").trim()
 }
 
@@ -127,4 +133,4 @@ private fun firstHeadingText(root: ASTNode, src: String): String {
     return content.getTextInNode(src).trim().toString()
 }
 
-private fun String.escapeHtml() = replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
+internal fun String.escapeHtml() = replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
