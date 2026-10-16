@@ -89,6 +89,8 @@ jobs:
           [[ "$out" == *"<title>Variable</title>"* ]]
           out=$(printf '# Hello\n' | build/bin/${{ matrix.binDir }}/releaseExecutable/${{ matrix.exe }} --standalone -V title=T -V abstract=Abs)
           [[ "$out" == *'<div class="abstract-title">Abstract</div>'* && "$out" == *'<p>Abs</p>'* ]]
+          out=$(printf '# One\n## Two\n' | build/bin/${{ matrix.binDir }}/releaseExecutable/${{ matrix.exe }} --standalone --toc)
+          [[ "$out" == *'<nav id="TOC" role="doc-toc">'* && "$out" == *'<a href="#two" id="toc-two">Two</a>'* ]]
           out=$(printf '# Hello\n' | build/bin/${{ matrix.binDir }}/releaseExecutable/${{ matrix.exe }} --standalone)
           [[ "$out" == *"<style>"* ]]
           out=$(printf '# Hello\n' | build/bin/${{ matrix.binDir }}/releaseExecutable/${{ matrix.exe }} --standalone -V css=none -V css=my.css)
@@ -145,6 +147,8 @@ jobs:
           [[ "$out" == *"<title>Variable</title>"* ]]
           out=$(printf '# Hello\n' | jetbrains-markdown-cli-linux-arm64/jetbrains-markdown-cli --standalone -V title=T -V abstract=Abs)
           [[ "$out" == *'<div class="abstract-title">Abstract</div>'* && "$out" == *'<p>Abs</p>'* ]]
+          out=$(printf '# One\n## Two\n' | jetbrains-markdown-cli-linux-arm64/jetbrains-markdown-cli --standalone --toc)
+          [[ "$out" == *'<nav id="TOC" role="doc-toc">'* && "$out" == *'<a href="#two" id="toc-two">Two</a>'* ]]
           out=$(printf '# Hello\n' | jetbrains-markdown-cli-linux-arm64/jetbrains-markdown-cli --standalone)
           [[ "$out" == *"<style>"* ]]
           out=$(printf '# Hello\n' | jetbrains-markdown-cli-linux-arm64/jetbrains-markdown-cli --standalone -V css=none -V css=my.css)

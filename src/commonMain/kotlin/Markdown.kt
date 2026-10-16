@@ -66,8 +66,13 @@ private class CliFlavour(
  * `lang` the `lang` attribute of `<html>`. The variable `css` lists the styles, see [styleTags]: the built-in
  * `default` style unless set. With `highlight` the code blocks are highlighted by highlight.js, see [highlightStyleTags].
  *
+ * With [tableOfContents] (`--toc`) the `<body>` has a table of contents of the headings down to level [tocDepth]
+ * after the title block, and `toc` and `toc-title` are variables of it, see [tableOfContents]. It is only part of a
+ * [standalone] document, like in pandoc.
+ *
  * @throws InvalidMetadataException if a YAML metadata block in [markdown] is not valid YAML
  * @throws InvalidVariableException if a variable has a value it cannot have, see [highlightStyleTags]
+ * @throws IllegalArgumentException if [tocDepth] is not between 1 and 6
  */
 fun markdownToHtml(
     markdown: String,
@@ -76,7 +81,10 @@ fun markdownToHtml(
     variables: TemplateContext = emptyMap(),
     metadata: TemplateContext = emptyMap(),
     metadataOverrides: TemplateContext = emptyMap(),
+    tableOfContents: Boolean = false,
+    tocDepth: Int = DEFAULT_TOC_DEPTH,
 ): String {
+    require(tocDepth in 1..MAX_TOC_DEPTH) { "the table of contents depth must be between 1 and $MAX_TOC_DEPTH" }
     val (src, documentMetadata) = extractMetadataBlocks(normalizeLineEndings(markdown))
     val rendered = render(src, flavour, standalone)
     // Every block starts with a line break; the first one is not wanted at the start of the output.
@@ -84,6 +92,7 @@ fun markdownToHtml(
     val context = mergeMetadata(listOf(metadata, documentMetadata, metadataOverrides, variables))
     val title = context["title"]?.let { plainText(it, flavour) }?.takeIf { it.isNotEmpty() }
         ?: firstHeadingText(rendered.tree, src).escapeHtml()
+    val toc = tableOfContents(context, if (tableOfContents) tocEntries(rendered, src, tocDepth) else null)
     val lang = context["lang"]?.asText()?.trim()?.takeIf { it.isNotEmpty() }
     val head = listOf("    <meta charset=\"UTF-8\">") + metaTags(context, flavour) +
         "    <title>$title</title>" + highlightStyleTags(context) + styleTags(context) + highlightScriptTags(context)
@@ -92,7 +101,7 @@ fun markdownToHtml(
         |<html${if (lang == null) "" else " lang=\"${lang.escapeHtml()}\""}>
         |  <head>
         |${head.joinToString("\n")}
-        |  </head>${withTitleBlock(rendered.body, titleBlock(context, flavour))}
+        |  </head>${withTitleBlock(rendered.body, titleBlock(context, flavour) + toc)}
         |</html>
         |
     """.trimMargin()
@@ -101,7 +110,7 @@ fun markdownToHtml(
 // The parser requires LF line endings, see the JetBrains/markdown README.
 internal fun normalizeLineEndings(text: String) = text.replace("\r\n", "\n").replace("\r", "\n")
 
-internal class Rendered(val tree: ASTNode, val body: String)
+internal class Rendered(val tree: ASTNode, val body: String, val providers: Map<IElementType, GeneratingProvider>)
 
 internal fun render(
     src: String,
@@ -116,7 +125,8 @@ internal fun render(
         HtmlGenerator.DefaultTagRenderer(DUMMY_ATTRIBUTES_CUSTOMIZER, false),
         baseLevel = baseLevel,
     )
-    return Rendered(tree, HtmlGenerator(src, tree, descriptor).generateHtml(renderer))
+    val providers = descriptor.createHtmlGeneratingProviders(LinkMap.buildLinkMap(tree, src), null)
+    return Rendered(tree, HtmlGenerator(src, tree, providers).generateHtml(renderer), providers)
 }
 
 /**

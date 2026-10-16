@@ -35,6 +35,7 @@ Where to look in the plugin (all under `plugins/markdown/core/src/org/intellij/p
 - `src/commonMain/kotlin/Markdown.kt`: `markdownToHtml()`, the `Flavour` enum (commonmark/gfm/space, default = GFM, like the plugin's `MarkdownDefaultFlavour`), the flavour wrapper adding anchored headings and, with `standalone`, the document skeleton.
 - `src/commonMain/kotlin/HeadingAnchors.kt`: port of the plugin's heading anchor logic.
 - `src/commonMain/kotlin/TitleBlock.kt`: the title block at the start of the `<body>` and the `<meta>` tags, like pandoc's HTML template.
+- `src/commonMain/kotlin/TableOfContents.kt`: the `<nav id="TOC">` after the title block; the entries come from `--toc`, the `toc` variable only switches the nav, like in pandoc's template.
 - `src/commonMain/kotlin/Styles.kt`: the `css` template variable: built-in style names (`none`, `default`, `intellij`, `github`) to `<style>`, other values to `<link>`.
 - `src/commonMain/kotlin/Highlight.kt`: the `highlight*` template variables: the highlight.js `<link>`s (before the `css` entries), the box rules, and the deferred `<script>`s (after).
 - `src/commonMain/kotlin/StyleSheets.kt`: the CSS of the built-in styles, as `const val`s (no resource loading in Kotlin/Native).
@@ -79,7 +80,7 @@ linuxArm64 is cross-compiled and smoke-tested by a separate CI job. Locally you 
   `disableNativeCache` for test executables only; release binaries link fine. Re-check when updating Clikt or Kotlin.
 - Input is normalized to LF before parsing (the library requires it); keep that.
 - **Template variable precedence follows pandoc** (checked against pandoc 3.7): `-V`/`variables` > `metadata:` of defaults files
-  (like `-M`) > the document's YAML blocks > metadata files. Consumed so far, in `markdownToHtml`: `title`, `subtitle`, `author`, `date`, `abstract`, `lang`, `abstract-title`, `css`, `highlight`, `highlight-style`, `highlight-style-dark`, `highlight-url`, `highlight-languages`.
+  (like `-M`) > the document's YAML blocks > metadata files. Consumed so far, in `markdownToHtml`: `title`, `subtitle`, `author`, `date`, `abstract`, `lang`, `abstract-title`, `css`, `highlight`, `highlight-style`, `highlight-style-dark`, `highlight-url`, `highlight-languages`, `toc`, `toc-title` (`--toc`/`--toc-depth` are options, not variables, as in pandoc).
 - Heading anchors must stay in sync with the plugin's algorithm (lowercase, drop everything but letters, digits,
   `-`, `_` and spaces, spaces → `-`, duplicates get `-1`, `-2`, ...). If the plugin changes, mirror it.
 - CI smoke tests (`build.yml`) assert on exact output fragments such as `<h1 id="hello">Hello</h1>`;

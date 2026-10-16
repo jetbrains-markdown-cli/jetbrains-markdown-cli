@@ -9,6 +9,8 @@ import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.multiple
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.enum
+import com.github.ajalt.clikt.parameters.types.int
+import com.github.ajalt.clikt.parameters.types.restrictTo
 
 /**
  * Command line interface: reads the Markdown input files (or stdin) and writes the HTML to the output file (or stdout),
@@ -39,6 +41,12 @@ class MarkdownCli(
     private val flavour by option("-f", "--flavour", help = "Markdown flavour to parse the input with (default: ${Flavour.DEFAULT.cliName}).")
         .enum<Flavour> { it.cliName }
 
+    private val tableOfContents by option("--toc", "--table-of-contents", help = "Include an automatically generated table of contents (with --standalone).")
+        .flag()
+
+    private val tocDepth by option("--toc-depth", metavar = "NUMBER", help = "Heading levels the table of contents covers (default: $DEFAULT_TOC_DEPTH).")
+        .int().restrictTo(1..MAX_TOC_DEPTH)
+
     private val variables by option("-V", "--variable", metavar = "KEY[=VAL]", help = "Set a template variable; without a value it is true. Can be repeated.")
         .convert { parseVariable(it) }
         .multiple()
@@ -53,6 +61,8 @@ class MarkdownCli(
         val commandLine = Settings(
             standalone = if (standalone) true else null,
             flavour = flavour,
+            tableOfContents = if (tableOfContents) true else null,
+            tocDepth = tocDepth,
             variables = variablesOf(variables),
             metadataFiles = metadataFiles,
             inputFiles = inputFiles,
@@ -68,6 +78,8 @@ class MarkdownCli(
                 settings.variables,
                 metadata,
                 settings.metadata,
+                settings.tableOfContents ?: false,
+                settings.tocDepth ?: DEFAULT_TOC_DEPTH,
             )
         } catch (e: InvalidMetadataException) {
             throw CliktError("Error in the input: ${e.message}")

@@ -63,3 +63,14 @@ internal fun TemplateValue.asBoolean(name: String): Boolean = when (this) {
     }
     is TemplateValue.Fields -> throw InvalidVariableException("the variable `$name` must be true or false, not a map")
 }
+
+/**
+ * Whether a template's `$if(variable)$` is true for the value, like in pandoc: the boolean itself, any text but the
+ * empty one (so `false` as text is true), a list if any item is, and a map always.
+ */
+internal fun TemplateValue.isTruthy(): Boolean = when (this) {
+    is TemplateValue.Flag -> value
+    is TemplateValue.Text -> value.isNotEmpty()
+    is TemplateValue.Items -> values.any { it.isTruthy() }
+    is TemplateValue.Fields -> true
+}

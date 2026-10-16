@@ -54,9 +54,11 @@ The `<style>` (abbreviated here) is the [default style](#styles), which `-V css=
 | `INPUT...`                     | The Markdown files to convert. They are concatenated, with a blank line between them, before parsing (so a YAML metadata file can be one of them, like in pandoc). Stdin if there are none; `-` is stdin |
 | `-o`, `--output=FILE`          | Write the HTML to `FILE` (replacing it) instead of stdout; `-` is stdout. Nothing is written if the conversion fails |
 | `-s`, `--standalone`           | Produce a complete HTML document (doctype, `<head>`, `<body>`) instead of just the content |
+| `--toc`, `--table-of-contents` | Add a [table of contents](#table-of-contents) of the headings after the title block (with `--standalone`, as in pandoc) |
+| `--toc-depth=NUMBER`           | The heading levels the table of contents covers, 1 to 6 (default 3) |
 | `-f`, `--flavour=...`          | Markdown flavour: `gfm` (default, GitHub Flavored Markdown like IntelliJ's Markdown plugin), `commonmark` (plain CommonMark) or `space` (JetBrains Space) |
 | `-V`, `--variable=KEY[=VAL]`   | Set a template variable like `pandoc --variable`: without a value it is `true`, repeating a key makes a list. Can be repeated |
-| `-d`, `--defaults=FILE`        | Read options from a YAML defaults file like `pandoc --defaults` (`input-files`, `output-file`, `standalone`, `flavour`, `variables`, `metadata`, `metadata-files`; other keys are ignored with a warning). `FILE.yaml` is found as `FILE`. Can be repeated, later files override earlier ones, the command line overrides them all (input files on the command line replace those of defaults files, like in pandoc) |
+| `-d`, `--defaults=FILE`        | Read options from a YAML defaults file like `pandoc --defaults` (`input-files`, `output-file`, `standalone`, `flavour`, `toc` or `table-of-contents`, `toc-depth`, `variables`, `metadata`, `metadata-files`; other keys are ignored with a warning). `FILE.yaml` is found as `FILE`. Can be repeated, later files override earlier ones, the command line overrides them all (input files on the command line replace those of defaults files, like in pandoc) |
 | `--metadata-file=FILE`         | Read metadata (a YAML mapping) from `FILE`. Can be repeated, later files override earlier ones |
 | `-h`, `--help`                 | Show the help and exit |
 
@@ -97,6 +99,7 @@ values to a list).
 | `date`   | `<p class="date">` in the title block (Markdown inlines) and `<meta name="dcterms.date">` in the `<head>` |
 | `abstract` | `<div class="abstract">` in the title block, titled `abstract-title` (default `Abstract`). It is Markdown blocks |
 | `lang`   | The `lang` attribute of `<html>` |
+| `toc`, `toc-title` | The [table of contents](#table-of-contents) |
 | `css`    | The [styles](#styles) of the page: built-in ones by name, or the URLs of stylesheets. A list gives several. Without it, the `default` style is used |
 | `highlight`, `highlight-style`, `highlight-style-dark`, `highlight-url`, `highlight-languages` | [Syntax highlighting](#syntax-highlighting) of code fences with highlight.js |
 
@@ -124,6 +127,38 @@ printf -- '---\ntitle: My document\nauthor: [Ann, Bob]\ndate: 2026-01-02\n---\n'
 #   </body>
 # </html>
 ```
+
+### Table of contents
+
+`--toc` (or `--table-of-contents`) adds a table of contents to a `--standalone` document, like pandoc: a `<nav id="TOC"
+role="doc-toc">` with the headings as nested lists, after the title block and before the content. The links point to the
+`id`s of the headings, which are the IDE's (not pandoc's). Links in a heading
+are left out of its entry, other formatting stays. `--toc-depth=N` (default 3) sets the deepest heading level.
+
+```sh
+printf '# One\n\n## Two\n' | jetbrains-markdown-cli --standalone --toc -V toc-title=Contents | sed -n '/<body>/,/<\/nav>/p'
+#   <body>
+#     <nav id="TOC" role="doc-toc">
+#       <h2 id="toc-title">Contents</h2>
+#       <ul>
+#         <li><a href="#one" id="toc-one">One</a>
+#           <ul>
+#             <li><a href="#two" id="toc-two">Two</a></li>
+#           </ul>
+#         </li>
+#       </ul>
+#     </nav>
+```
+
+The template variables work as in pandoc's template, which has some surprises:
+
+- `toc-title` is the text of the `<h2>`; without it there is no title.
+- The variable `toc` only decides whether the `<nav>` is there, the entries come from `--toc` (or `toc: true`/`toc-depth` in a
+  [defaults file](#options), which are options and not variables). So `-V toc`, or `toc: true` in the document's YAML block,
+  without `--toc` gives an empty `<nav>`, and `toc-depth` as a variable or in the metadata does nothing.
+- With `--toc`, `toc` is set for you unless there are no headings (then there is no `<nav>`) or you set it yourself: `toc: false`
+  in the YAML block or `metadata:` turns the table off, while `-V toc=false` is the text `false`, which is true.
+  An empty value is false. Like in a pandoc template, a list is true if one of its items is, and a map always.
 
 ### Styles
 
@@ -226,11 +261,11 @@ Heading `id`s, indentation of the output and the default GitHub Flavored Markdow
 
 pandoc is much bigger, this tool only converts Markdown to HTML:
 
-- **Template variables**: only the [variables listed above](#template-variables) (`title`, `subtitle`, `author`, `date`, `abstract`, `lang`, `css`, `highlight*`) are
-  used by the `--standalone` skeleton. Other variables that pandoc's default HTML template knows (`header-includes`, `include-before`, `include-after`, `toc`, `keywords`, `math`, ...) can be set, but have no
+- **Template variables**: only the [variables listed above](#template-variables) (`title`, `subtitle`, `author`, `date`, `abstract`, `lang`, `css`, `toc`, `toc-title`, `highlight*`) are
+  used by the `--standalone` skeleton. Other variables that pandoc's default HTML template knows (`header-includes`, `include-before`, `include-after`, `keywords`, `math`, ...) can be set, but have no
   effect. There is no
   `--template` option either, so the skeleton cannot be replaced.
-- **Options**: no `--toc`, `-M`/`--metadata`, `--css`, `-H`/`-B`/`-A` (includes), `--wrap`, `--highlight-style` (it is the variable `highlight-style` here, for highlight.js, and highlighting is off by default,
+- **Options**: no `-M`/`--metadata`, `--css`, `-H`/`-B`/`-A` (includes), `--wrap`, `--highlight-style` (it is the variable `highlight-style` here, for highlight.js, and highlighting is off by default,
   while pandoc highlights on its own, with skylighting),
   `--mathjax`/`--katex`, `--filter`/`--lua-filter`, `--citeproc`, `--file-scope`, `--resource-path` or `--self-contained`.
   Keys of a [defaults file](#options) that are not supported are ignored with a warning.

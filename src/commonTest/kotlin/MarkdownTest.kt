@@ -1232,3 +1232,227 @@ class MarkdownCliTest {
         assertFailsWith<UsageError> { run("--does-not-exist") }
     }
 }
+
+class TableOfContentsTest {
+    private val doc = "# One\n\n## Two\n\n### Three\n\n#### Four\n\n## Two\n\n# One *em* `c` [l](http://x)\n"
+
+    private fun text(value: String) = TemplateValue.Text(value)
+
+    private fun html(
+        markdown: String = doc,
+        toc: Boolean = true,
+        depth: Int = DEFAULT_TOC_DEPTH,
+        standalone: Boolean = true,
+        variables: Map<String, TemplateValue> = emptyMap(),
+        metadata: Map<String, TemplateValue> = emptyMap(),
+    ) = markdownToHtml(markdown, standalone = standalone, variables = variables, metadata = metadata, tableOfContents = toc, tocDepth = depth)
+
+    private fun nav(document: String) = document.substringAfter("<nav", "").substringBefore("</nav>").let { if (it.isEmpty()) "" else "<nav$it</nav>" }
+
+    @Test
+    fun nestsTheHeadingsDownToLevelThree() {
+        assertEquals(
+            """
+            |<nav id="TOC" role="doc-toc">
+            |      <ul>
+            |        <li><a href="#one" id="toc-one">One</a>
+            |          <ul>
+            |            <li><a href="#two" id="toc-two">Two</a>
+            |              <ul>
+            |                <li><a href="#three" id="toc-three">Three</a></li>
+            |              </ul>
+            |            </li>
+            |            <li><a href="#two-1" id="toc-two-1">Two</a></li>
+            |          </ul>
+            |        </li>
+            |        <li><a href="#one-em-c-l" id="toc-one-em-c-l">One <em>em</em> <code>c</code> l</a></li>
+            |      </ul>
+            |    </nav>
+            """.trimMargin(),
+            nav(html()),
+        )
+    }
+
+    @Test
+    fun comesAfterTheTitleBlockAndBeforeTheContent() {
+        val document = html(variables = mapOf("title" to text("T")))
+        val positions = listOf("</header>", "<nav ", "<h1 id=\"one\"").map { document.indexOf(it) }
+        assertTrue(positions.all { it >= 0 } && positions == positions.sorted(), document)
+        assertContains(document, "    </nav>\n    <h1 id=\"one\">One</h1>")
+    }
+
+    @Test
+    fun hrefsAreTheHeadingIds() {
+        val document = html()
+        val ids = Regex("<h[1-6] id=\"([^\"]*)\"").findAll(document).map { it.groupValues[1] }.toList()
+        val hrefs = Regex("href=\"#([^\"]*)\"").findAll(nav(document)).map { it.groupValues[1] }.toList()
+        assertEquals(listOf("one", "two", "three", "two-1", "one-em-c-l"), hrefs)
+        assertTrue(ids.containsAll(hrefs), document)
+    }
+
+    @Test
+    fun depthLimitsTheLevels() {
+        assertFalse("three" in nav(html(depth = 2)))
+        assertContains(nav(html(depth = 2)), "toc-two-1")
+        assertFalse("toc-two" in nav(html(depth = 1)))
+        assertContains(nav(html(depth = 4)), "toc-four")
+        assertFailsWith<IllegalArgumentException> { html(depth = 0) }
+        assertFailsWith<IllegalArgumentException> { html(depth = 7) }
+    }
+
+    @Test
+    fun skippedLevelsNestDirectlyAndTheFirstLevelMayBeAny() {
+        assertEquals(
+            listOf("<ul>", "<li><a href=\"#a\" id=\"toc-a\">A</a>", "<ul>", "<li><a href=\"#c\" id=\"toc-c\">C</a></li>", "<li><a href=\"#b\" id=\"toc-b\">B</a></li>", "</ul>", "</li>", "</ul>"),
+            nav(html("# A\n\n### C\n\n## B\n")).lines().drop(1).dropLast(1).map { it.trim() },
+        )
+        assertEquals(
+            listOf("<ul>", "<li><a href=\"#low\" id=\"toc-low\">Low</a></li>", "<li><a href=\"#high\" id=\"toc-high\">High</a></li>", "</ul>"),
+            nav(html("## Low\n\n# High\n")).lines().drop(1).dropLast(1).map { it.trim() },
+        )
+    }
+
+    @Test
+    fun setextHeadingsAndReferenceLinksAreEntries() {
+        val toc = nav(html("Title\n=====\n\nSub *one*\n---------\n\n# See [ref] and [text][ref]\n\n[ref]: http://r\n"))
+        assertContains(toc, "<a href=\"#title\" id=\"toc-title\">Title</a>")
+        assertContains(toc, "<a href=\"#sub-one\" id=\"toc-sub-one\">Sub <em>one</em></a>")
+        assertContains(toc, ">See ref and text</a>")
+        assertFalse("http://r" in toc, toc)
+    }
+
+    @Test
+    fun entryTextIsEscapedAndKeepsImages() {
+        val toc = nav(html("# a < b & ![alt](p.png)\n"))
+        assertContains(toc, "a &lt; b &amp; <img src=\"p.png\" alt=\"alt\" />")
+    }
+
+    @Test
+    fun headingsWithUnicodeLettersWork() {
+        assertContains(nav(html("# Ünï côdé\n")), "<a href=\"#ünï-côdé\" id=\"toc-ünï-côdé\">Ünï côdé</a>")
+    }
+
+    @Test
+    fun tocTitleIsAnEscapedHeading() {
+        val toc = nav(html(variables = mapOf("toc-title" to text("Contents & <more>"))))
+        assertContains(toc, "<nav id=\"TOC\" role=\"doc-toc\">\n      <h2 id=\"toc-title\">Contents &amp; &lt;more&gt;</h2>\n      <ul>")
+        assertFalse("toc-title" in nav(html()))
+        assertFalse("toc-title" in nav(html(variables = mapOf("toc-title" to text(" ")))))
+    }
+
+    @Test
+    fun noHeadingsGiveNoNav() {
+        assertEquals("", nav(html("just text\n")))
+        assertEquals("", nav(html("")))
+        assertEquals("", nav(html("## Two\n", depth = 1)))
+    }
+
+    @Test
+    fun withoutTheOptionThereIsNoNav() {
+        assertEquals("", nav(html(toc = false)))
+        assertEquals("", nav(html(toc = false, variables = mapOf("toc-title" to text("T")))))
+    }
+
+    @Test
+    fun theVariableAloneGivesAnEmptyNavLikeInPandoc() {
+        val empty = "<nav id=\"TOC\" role=\"doc-toc\"></nav>"
+        assertEquals(empty, nav(html(toc = false, variables = mapOf("toc" to TemplateValue.Flag(true)))))
+        assertEquals(empty, nav(html("just text\n", toc = false, variables = mapOf("toc" to text("true")))))
+        assertEquals(empty, nav(html("just text\n", toc = true, variables = mapOf("toc" to TemplateValue.Flag(true)))))
+        assertContains(
+            html(toc = false, variables = mapOf("toc" to TemplateValue.Flag(true), "toc-title" to text("T"))),
+            "<nav id=\"TOC\" role=\"doc-toc\">\n      <h2 id=\"toc-title\">T</h2>\n    </nav>\n    <h1",
+        )
+        assertContains(html("", toc = false, variables = mapOf("toc" to TemplateValue.Flag(true))), "<body>\n    <nav id=\"TOC\" role=\"doc-toc\"></nav>\n  </body>")
+    }
+
+    @Test
+    fun theVariableDecidesLikeInATemplateCondition() {
+        fun nav(value: TemplateValue) = nav(html(toc = true, variables = mapOf("toc" to value)))
+        // A boolean false (as in YAML or -M) and the empty text turn the table off, even with --toc ...
+        assertEquals("", nav(TemplateValue.Flag(false)))
+        assertEquals("", nav(text("")))
+        assertEquals("", nav(TemplateValue.Items(listOf(TemplateValue.Flag(false)))))
+        // ... but the text "false" (as with -V) is a value like any other, and the table stays.
+        assertContains(nav(text("false")), "toc-one")
+        assertContains(nav(TemplateValue.Fields(mapOf("a" to text("1")))), "toc-one")
+        assertContains(nav(TemplateValue.Items(listOf(TemplateValue.Flag(false), text("x")))), "toc-one")
+    }
+
+    @Test
+    fun theDocumentCanTurnTheTableOff() {
+        assertEquals("", nav(html("---\ntoc: false\n---\n\n# A\n")))
+        assertContains(html("---\ntoc: true\ntoc-title: Inhalt\n---\n\n# A\n", toc = true), "<h2 id=\"toc-title\">Inhalt</h2>")
+        assertEquals("<nav id=\"TOC\" role=\"doc-toc\"></nav>", nav(html("---\ntoc: true\n---\n\n# A\n", toc = false)))
+    }
+
+    @Test
+    fun metadataAndDocumentDepthAreNotUsed() {
+        val withDepth = html("---\ntoc-depth: 1\n---\n\n# A\n\n## B\n", metadata = mapOf("toc-depth" to text("1")))
+        assertContains(nav(withDepth), "toc-b")
+    }
+
+    @Test
+    fun onlyStandaloneDocumentsHaveIt() {
+        val content = html(standalone = false)
+        assertEquals("", nav(content))
+        assertEquals(markdownToHtml(doc), content)
+        assertEquals(markdownToHtml(doc), html(standalone = false, variables = mapOf("toc" to TemplateValue.Flag(true))))
+    }
+
+    @Test
+    fun parsesTheDefaultsFileKeys() {
+        assertEquals(true, parseSettings("toc: true").tableOfContents)
+        assertEquals(true, parseSettings("table-of-contents: true").tableOfContents)
+        assertEquals(false, parseSettings("toc: false").tableOfContents)
+        assertEquals(2, parseSettings("toc-depth: 2").tocDepth)
+        assertEquals(null, parseSettings("standalone: true").tableOfContents)
+        for (bad in listOf("toc: yes please", "toc: [a]", "toc-depth: 0", "toc-depth: 7", "toc-depth: two", "toc-depth: true")) {
+            assertFailsWith<IllegalArgumentException>(bad) { parseSettings(bad) }
+        }
+        val layered = parseSettings("toc: false\ntoc-depth: 1").then(parseSettings("toc: true"))
+        assertEquals(true, layered.tableOfContents)
+        assertEquals(1, layered.tocDepth)
+    }
+
+    private fun run(vararg args: String, input: String = doc, files: Map<String, String> = emptyMap()): String {
+        var output = ""
+        MarkdownCli(readStdin = { input }, writeStdout = { output += it }, readFile = { files[it] }).parse(args.toList())
+        return output
+    }
+
+    @Test
+    fun cliOptionsTurnItOnAndSetTheDepth() {
+        assertContains(run("-s", "--toc"), "<a href=\"#two\" id=\"toc-two\">")
+        assertContains(run("-s", "--table-of-contents"), "<a href=\"#two\" id=\"toc-two\">")
+        assertFalse("toc-two" in run("-s", "--toc", "--toc-depth", "1"))
+        assertFalse("toc-three" in run("-s", "--toc", "--toc-depth=2"))
+        assertContains(run("-s", "--toc", "--toc-depth=4"), "toc-four")
+        assertEquals("", nav(run("-s")))
+        assertEquals("", nav(run("-s", "--toc-depth=1")))
+        assertEquals("<nav id=\"TOC\" role=\"doc-toc\"></nav>", nav(run("-s", "-V", "toc", input = "x\n")))
+        assertEquals(markdownToHtml(doc), run("--toc"))
+    }
+
+    @Test
+    fun cliRejectsABadDepth() {
+        for (depth in listOf("0", "7", "x")) assertFailsWith<UsageError> { run("-s", "--toc", "--toc-depth=$depth") }
+    }
+
+    @Test
+    fun cliReadsItFromDefaultsFilesAndTheCommandLineOverrides() {
+        val files = mapOf("on.yaml" to "toc: true\ntoc-depth: 1\n", "off.yaml" to "toc: false\n")
+        assertContains(run("-s", "-d", "on.yaml", files = files), "toc-one")
+        assertFalse("toc-two" in run("-s", "-d", "on.yaml", files = files))
+        assertContains(run("-s", "-d", "on.yaml", "--toc-depth=2", files = files), "toc-two")
+        assertContains(run("-s", "-d", "off.yaml", "--toc", files = files), "toc-one")
+        assertEquals("", nav(run("-s", "-d", "on.yaml", "-d", "off.yaml", files = files)))
+    }
+
+    @Test
+    fun cliPassesTheVariablesOn() {
+        assertContains(run("-s", "--toc", "-V", "toc-title=Inhalt"), "<h2 id=\"toc-title\">Inhalt</h2>")
+        assertContains(run("-s", "--toc", "-V", "toc=false"), "toc-one")
+        assertEquals("", nav(run("-s", "--toc", input = "---\ntoc: false\n---\n# A\n")))
+    }
+}

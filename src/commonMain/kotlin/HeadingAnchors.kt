@@ -30,28 +30,33 @@ internal class AnchoredHeadingProvider(tagName: String) : SimpleTagProvider(tagN
         val root = node.getParentOfType(MarkdownElementTypes.MARKDOWN_FILE) ?: return null
         if (file !== root) {
             file = root
-            anchors = buildAnchors(root, text)
+            anchors = headingAnchors(root, text)
         }
         return anchors[node]
     }
-
-    private fun buildAnchors(root: ASTNode, text: String): Map<ASTNode, String> {
-        val result = HashMap<ASTNode, String>()
-        val occurrences = HashMap<String, Int>()
-        for (heading in root.headings()) {
-            val raw = rawAnchorText(heading, text) ?: continue
-            val occurrence = occurrences[raw] ?: 0
-            occurrences[raw] = occurrence + 1
-            result[heading] = if (occurrence == 0) raw else "$raw-$occurrence"
-        }
-        return result
-    }
-
-    private fun ASTNode.headings(): Sequence<ASTNode> = sequence {
-        if (type in headingTypes) yield(this@headings)
-        for (child in children) yieldAll(child.headings())
-    }
 }
+
+/** The `id` of every heading below [root] (the whole document), in the plugin's way, see [AnchoredHeadingProvider]. */
+internal fun headingAnchors(root: ASTNode, text: String): Map<ASTNode, String> {
+    val result = HashMap<ASTNode, String>()
+    val occurrences = HashMap<String, Int>()
+    for (heading in root.headings()) {
+        val raw = rawAnchorText(heading, text) ?: continue
+        val occurrence = occurrences[raw] ?: 0
+        occurrences[raw] = occurrence + 1
+        result[heading] = if (occurrence == 0) raw else "$raw-$occurrence"
+    }
+    return result
+}
+
+/** The headings below (and including) this node, in document order. */
+internal fun ASTNode.headings(): Sequence<ASTNode> = sequence {
+    if (type in headingTypes) yield(this@headings)
+    for (child in children) yieldAll(child.headings())
+}
+
+/** The level (1 to 6) of a heading node. */
+internal fun headingLevel(heading: ASTNode): Int = headingTypes.indexOf(heading.type).let { if (it < 6) it + 1 else it - 5 }
 
 // The plugin strips everything but `[\p{IsAlphabetic}\d\-_ ]` with a regex. Kotlin/Native's regex engine knows
 // neither `\p{IsAlphabetic}` nor negated classes containing `\p{..}` (it silently misbehaves), so filter by
