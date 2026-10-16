@@ -320,14 +320,15 @@ pandoc is much bigger, this tool only converts Markdown to HTML:
   (`<pre><code class="language-xyz">` instead of pandoc's `<div class="sourceCode">` with highlighting spans). The `<head>` has no
   `generator`, `viewport` or `description` `<meta>` and the `<html>` element no `xmlns`/`xml:lang`.
 
-## Licenses of the built-in styles
+## Licenses
 
-The CSS of the [built-in styles](#styles) is adapted from other projects and used under their licenses: `github` and
-`intellij` from [github-markdown-css](https://github.com/sindresorhus/github-markdown-css) (MIT, Sindre Sorhus),
-`gitlab` from [GitLab](https://gitlab.com/gitlab-org/gitlab) and [GitLab UI](https://gitlab.com/gitlab-org/gitlab-ui)
-(MIT, GitLab Inc.), and `pandoc` from the default style of [pandoc](https://github.com/jgm/pandoc)'s HTML template
-(BSD 3-clause, John MacFarlane; the templates are dual-licensed with the GPL). The license texts are in
-`src/commonMain/kotlin/StyleSheets.kt`.
+This project is licensed under the [Apache License 2.0](LICENSE). The binaries contain the libraries it is built with
+(the Kotlin standard library and runtime, JetBrains Markdown, Clikt, snakeyaml-engine-kmp and their dependencies), and the
+[built-in styles](#styles) and the heading anchors are adapted from other projects: `intellij` from the Markdown plugin of
+IntelliJ IDEA, `github` from [github-markdown-css](https://github.com/sindresorhus/github-markdown-css), `gitlab` from
+[GitLab](https://gitlab.com/gitlab-org/gitlab) and `pandoc` from [pandoc](https://github.com/jgm/pandoc). Their licenses
+and notices are in [THIRD-PARTY](THIRD-PARTY), which is attached to each release and is also in every release archive,
+next to the binary and the `LICENSE`.
 
 ## Downloads
 

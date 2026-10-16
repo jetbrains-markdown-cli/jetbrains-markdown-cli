@@ -2,7 +2,8 @@
  * The built-in styles (see [BuiltInStyles]). They are compile-time constants because there is no resource loading
  * in Kotlin/Native, and only style what this tool generates.
  *
- * The IntelliJ and GitHub styles are adapted from github-markdown-css, which is licensed as follows:
+ * The IntelliJ style is adapted from the Markdown plugin of IntelliJ IDEA (Apache-2.0, JetBrains s.r.o. and contributors),
+ * the IntelliJ and GitHub styles from github-markdown-css, which is licensed as follows:
  *
  * The MIT License (MIT)
  *

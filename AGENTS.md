@@ -51,7 +51,8 @@ Where to look in the plugin (all under `plugins/markdown/core/src/org/intellij/p
   concatenated with blank lines); the output file is only written once the conversion succeeded.
 - `src/nativeMain/kotlin/Main.kt`: reads stdin and files, writes files, and runs `MarkdownCli`.
 - `src/commonTest/kotlin/MarkdownTest.kt`: tests (run on the host target).
-- `.github/workflows/build.yml`: builds all targets, smoke-tests them, publishes binaries on `v*` tags.
+- `.github/workflows/build.yml`: builds all targets, smoke-tests them, publishes binaries (archives with `LICENSE` and `THIRD-PARTY`, which is also a release asset) on `v*` tags.
+- `THIRD-PARTY`: the notices and license texts that the release archives must carry.
 
 All logic lives in `commonMain`; keep `nativeMain` to I/O only.
 
@@ -132,6 +133,9 @@ itself. Things to keep in mind there:
 - Keep the README's usage example in sync with the actual output, and its *Limitations* section with what is implemented
   (e.g. when another template variable or option gets supported).
 - Add or adjust a test in `MarkdownTest.kt` for every output change.
+- Keep `THIRD-PARTY` (licenses of the libraries linked into the binaries, of the code and styles adapted from other projects,
+  and the Kotlin/Native runtime) in sync with `build.gradle.kts` and `StyleSheets.kt`: new or updated dependencies, new built-in
+  styles, ported code. CI puts it, with `LICENSE`, into every release archive and attaches it to the release.
 - Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/): `type(scope): summary`
   with an imperative, lowercase summary (types such as `feat`, `fix`, `docs`, `test`, `ci`, `build`, `refactor`,
   `chore`; scope optional). Mark breaking output changes with `!` or a `BREAKING CHANGE:` footer.

@@ -110,6 +110,7 @@ jobs:
         run: |
           name=jetbrains-markdown-cli-${{ matrix.name }}
           mkdir -p dist/$name
+          cp LICENSE THIRD-PARTY dist/$name/
           if [[ "${{ matrix.name }}" == windows-* ]]; then
             cp build/bin/${{ matrix.binDir }}/releaseExecutable/${{ matrix.exe }} dist/$name/jetbrains-markdown-cli.exe
             (cd dist && 7z a $name.zip $name > /dev/null)
@@ -138,6 +139,7 @@ jobs:
       - name: Smoke test
         run: |
           tar -xzf jetbrains-markdown-cli-linux-arm64.tar.gz
+          test -s jetbrains-markdown-cli-linux-arm64/LICENSE && test -s jetbrains-markdown-cli-linux-arm64/THIRD-PARTY
           out=$(printf '# Hello\n\nsome *markdown*\n' | jetbrains-markdown-cli-linux-arm64/jetbrains-markdown-cli)
           echo "$out"
           [[ "$out" == *"<h1 id=\"hello\">Hello</h1>"* && "$out" == *"<em>markdown</em>"* ]]
@@ -173,6 +175,8 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v5
+
       - uses: actions/download-artifact@v5
         with:
           path: dist
@@ -182,7 +186,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" dist/* \
+          gh release create "$GITHUB_REF_NAME" dist/* THIRD-PARTY \
             --repo "$GITHUB_REPOSITORY" \
             --title "$GITHUB_REF_NAME" \
             --generate-notes
