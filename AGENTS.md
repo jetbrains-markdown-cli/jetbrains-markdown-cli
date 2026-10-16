@@ -33,6 +33,7 @@ Where to look in the plugin (all under `plugins/markdown/core/src/org/intellij/p
 - `src/commonMain/kotlin/PrettyTagRenderer.kt`: indents block tags; leaves `<pre>` content untouched.
 - `src/commonMain/kotlin/TemplateVariables.kt`: `TemplateValue`/`TemplateContext` (pandoc-style template variables) and the `-V` parsing.
 - `src/commonMain/kotlin/Metadata.kt`: YAML (via [snakeyaml-engine-kmp](https://github.com/krzema12/snakeyaml-engine-kmp)) to `TemplateValue`s, and merging of metadata layers.
+- `src/commonMain/kotlin/Settings.kt`: `Settings`, the options a defaults file can set; defaults files and the command line are layered with `Settings.then`.
 - `src/commonMain/kotlin/MarkdownCli.kt`: the command line interface ([Clikt](https://github.com/ajalt/clikt)); options are declared
   here. Input/output (stdin, stdout, files) are injected so it can be tested without them.
 - `src/nativeMain/kotlin/Main.kt`: reads stdin and files and runs `MarkdownCli`.

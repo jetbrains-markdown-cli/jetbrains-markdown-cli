@@ -218,7 +218,91 @@ class MetadataTest {
     }
 }
 
+class SettingsTest {
+    private fun text(value: String) = TemplateValue.Text(value)
+
+    @Test
+    fun parsesSupportedKeys() {
+        val settings = parseSettings(
+            """
+            |standalone: true
+            |flavour: commonmark
+            |variables:
+            |  title: V
+            |  author: [a, b]
+            |metadata:
+            |  title: M
+            |metadata-files:
+            |  - one.yaml
+            |  - two.yaml
+            """.trimMargin()
+        )
+        assertEquals(true, settings.standalone)
+        assertEquals(Flavour.COMMONMARK, settings.flavour)
+        assertEquals(mapOf("title" to text("V"), "author" to TemplateValue.Items(listOf(text("a"), text("b")))), settings.variables)
+        assertEquals(mapOf("title" to text("M")), settings.metadata)
+        assertEquals(listOf("one.yaml", "two.yaml"), settings.metadataFiles)
+    }
+
+    @Test
+    fun metadataFileMayBeASingleName() {
+        assertEquals(listOf("one.yaml"), parseSettings("metadata-file: one.yaml").metadataFiles)
+        assertEquals(listOf("one.yaml"), parseSettings("metadata-files: one.yaml").metadataFiles)
+    }
+
+    @Test
+    fun emptyDefaultsSetNothing() {
+        val settings = parseSettings("")
+        assertEquals(null, settings.standalone)
+        assertEquals(null, settings.flavour)
+        assertEquals(emptyMap(), settings.variables)
+        assertEquals(emptyList(), settings.metadataFiles)
+    }
+
+    @Test
+    fun reportsAndSkipsUnsupportedKeys() {
+        val ignored = mutableListOf<String>()
+        val settings = parseSettings("from: markdown\nstandalone: true\ntemplate: x.html\n") { ignored += it }
+        assertEquals(listOf("from", "template"), ignored)
+        assertEquals(true, settings.standalone)
+    }
+
+    @Test
+    fun rejectsValuesOfTheWrongType() {
+        for (yaml in listOf(
+            "standalone: maybe", "flavour: bogus", "flavour: [gfm]", "variables: x", "metadata: [a]",
+            "metadata-files: {a: b}", "metadata-files: [[a]]",
+        )) {
+            assertFailsWith<IllegalArgumentException>(yaml) { parseSettings(yaml) }
+        }
+    }
+
+    @Test
+    fun laterSettingsOverrideEarlierOnes() {
+        val earlier = Settings(
+            standalone = true, flavour = Flavour.SPACE,
+            variables = mapOf("a" to text("1"), "b" to text("1")),
+            metadata = mapOf("m" to text("1")),
+            metadataFiles = listOf("one.yaml"),
+        )
+        val later = Settings(
+            flavour = Flavour.COMMONMARK,
+            variables = mapOf("b" to text("2")),
+            metadata = mapOf("n" to text("2")),
+            metadataFiles = listOf("two.yaml"),
+        )
+        val merged = earlier.then(later)
+        assertEquals(true, merged.standalone)
+        assertEquals(Flavour.COMMONMARK, merged.flavour)
+        assertEquals(mapOf("a" to text("1"), "b" to text("2")), merged.variables)
+        assertEquals(mapOf("m" to text("1"), "n" to text("2")), merged.metadata)
+        assertEquals(listOf("one.yaml", "two.yaml"), merged.metadataFiles)
+    }
+}
+
 class MarkdownCliTest {
+    private val table = "| a | b |\n|---|---|\n| 1 | 2 |\n"
+
     private fun run(
         vararg args: String,
         input: String = "# Title\n",
@@ -296,6 +380,45 @@ class MarkdownCliTest {
             val error = assertFailsWith<CliktError> { run("--metadata-file", name, files = files) }
             assertContains(error.message.orEmpty(), name)
         }
+    }
+
+    @Test
+    fun defaultsFileSetsOptions() {
+        val files = mapOf("d.yaml" to "standalone: true\nflavour: commonmark\n")
+        for (option in listOf("-d", "--defaults")) {
+            val html = run(option, "d.yaml", input = table, files = files)
+            assertTrue(html.startsWith("<!DOCTYPE html>"), html)
+            assertFalse("<table>" in html, html)
+        }
+    }
+
+    @Test
+    fun defaultsFileNeedsNoYamlExtension() {
+        assertEquals(run("-s"), run("-d", "d", files = mapOf("d.yaml" to "standalone: true\n")))
+    }
+
+    @Test
+    fun commandLineOverridesDefaultsFiles() {
+        val files = mapOf("one.yaml" to "flavour: commonmark\n", "two.yaml" to "flavour: space\n")
+        assertFalse("<table>" in run("-d", "one.yaml", input = table, files = files))
+        assertContains(run("-d", "one.yaml", "-d", "two.yaml", input = table, files = files), "<table>")
+        assertContains(run("-d", "one.yaml", "-f", "gfm", input = table, files = files), "<table>")
+    }
+
+    @Test
+    fun defaultsFileMetadataFilesAreRead() {
+        val files = mapOf("d.yaml" to "metadata-files: [a.yaml]\n", "a.yaml" to "title: A\n")
+        assertEquals(run(), run("-d", "d.yaml", files = files))
+        assertFailsWith<CliktError> { run("-d", "d.yaml", files = files - "a.yaml") }
+    }
+
+    @Test
+    fun rejectsMissingOrInvalidDefaultsFile() {
+        val missing = assertFailsWith<CliktError> { run("-d", "nope.yaml") }
+        assertContains(missing.message.orEmpty(), "nope.yaml")
+        val invalid = assertFailsWith<CliktError> { run("-d", "bad.yaml", files = mapOf("bad.yaml" to "flavour: bogus")) }
+        assertContains(invalid.message.orEmpty(), "bad.yaml")
+        assertContains(invalid.message.orEmpty(), "bogus")
     }
 
     @Test
