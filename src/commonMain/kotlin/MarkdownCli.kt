@@ -71,6 +71,8 @@ class MarkdownCli(
             )
         } catch (e: InvalidMetadataException) {
             throw CliktError("Error in the input: ${e.message}")
+        } catch (e: InvalidVariableException) {
+            throw CliktError("Error in the variables: ${e.message}")
         }
         val output = settings.outputFile ?: STDIO
         if (output == STDIO) writeStdout(html)

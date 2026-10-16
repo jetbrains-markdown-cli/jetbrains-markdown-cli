@@ -43,3 +43,23 @@ internal fun variablesOf(assignments: List<Pair<String, TemplateValue>>): Templa
     }
     return context
 }
+
+/** A template variable has a value its use does not allow, e.g. `highlight=ture`. */
+class InvalidVariableException(message: String) : IllegalArgumentException(message)
+
+/**
+ * The value of the variable [name] as a boolean: `true` and `false` (also as text, in any case), and the empty
+ * text is `false` like in pandoc. A list is its last value.
+ *
+ * @throws InvalidVariableException for anything else, which is more likely a typo than a deliberate `false`
+ */
+internal fun TemplateValue.asBoolean(name: String): Boolean = when (this) {
+    is TemplateValue.Flag -> value
+    is TemplateValue.Items -> values.lastOrNull()?.asBoolean(name) ?: false
+    is TemplateValue.Text -> when (value.trim().lowercase()) {
+        "true" -> true
+        "false", "" -> false
+        else -> throw InvalidVariableException("the variable `$name` must be true or false, not `$value`")
+    }
+    is TemplateValue.Fields -> throw InvalidVariableException("the variable `$name` must be true or false, not a map")
+}

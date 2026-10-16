@@ -36,6 +36,7 @@ Where to look in the plugin (all under `plugins/markdown/core/src/org/intellij/p
 - `src/commonMain/kotlin/HeadingAnchors.kt`: port of the plugin's heading anchor logic.
 - `src/commonMain/kotlin/TitleBlock.kt`: the title block at the start of the `<body>` and the `<meta>` tags, like pandoc's HTML template.
 - `src/commonMain/kotlin/Styles.kt`: the `css` template variable: built-in style names (`none`, `default`, `intellij`, `github`) to `<style>`, other values to `<link>`.
+- `src/commonMain/kotlin/Highlight.kt`: the `highlight*` template variables: the highlight.js `<link>`s (before the `css` entries), the box rules, and the deferred `<script>`s (after).
 - `src/commonMain/kotlin/StyleSheets.kt`: the CSS of the built-in styles, as `const val`s (no resource loading in Kotlin/Native).
 - `src/commonMain/kotlin/PrettyTagRenderer.kt`: indents block tags; leaves `<pre>` content untouched.
 - `src/commonMain/kotlin/TemplateVariables.kt`: `TemplateValue`/`TemplateContext` (pandoc-style template variables) and the `-V` parsing.
@@ -78,7 +79,7 @@ linuxArm64 is cross-compiled and smoke-tested by a separate CI job. Locally you 
   `disableNativeCache` for test executables only; release binaries link fine. Re-check when updating Clikt or Kotlin.
 - Input is normalized to LF before parsing (the library requires it); keep that.
 - **Template variable precedence follows pandoc** (checked against pandoc 3.7): `-V`/`variables` > `metadata:` of defaults files
-  (like `-M`) > the document's YAML blocks > metadata files. Consumed so far, in `markdownToHtml`: `title`, `subtitle`, `author`, `date`, `abstract`, `lang`, `abstract-title`, `css`.
+  (like `-M`) > the document's YAML blocks > metadata files. Consumed so far, in `markdownToHtml`: `title`, `subtitle`, `author`, `date`, `abstract`, `lang`, `abstract-title`, `css`, `highlight`, `highlight-style`, `highlight-style-dark`, `highlight-url`, `highlight-languages`.
 - Heading anchors must stay in sync with the plugin's algorithm (lowercase, drop everything but letters, digits,
   `-`, `_` and spaces, spaces → `-`, duplicates get `-1`, `-2`, ...). If the plugin changes, mirror it.
 - CI smoke tests (`build.yml`) assert on exact output fragments such as `<h1 id="hello">Hello</h1>`;
@@ -98,9 +99,20 @@ CSS when the plugin changes. Alerts (`[!NOTE]`) are not rendered by this tool, s
 
 Diagram and formula rendering (Mermaid, PlantUML, LaTeX math) is not implemented either; those fences stay plain code blocks.
 
-Syntax highlighting is not implemented. The plugin does it with IntelliJ's own lexers and the editor colour scheme
-(inline `style="color: ..."` per token), which cannot be reused here. Fences are emitted as
-`<code class="language-xyz">` so a client-side highlighter (highlight.js, Prism) can be added by the consumer.
+Syntax highlighting like the IDE's is not implemented. The plugin does it with IntelliJ's own lexers and the editor colour
+scheme (inline `style="color: ..."` per token), which cannot be reused here. Fences are emitted as
+`<code class="language-xyz">`. The opt-in `highlight` variable adds highlight.js to a standalone page instead
+(`Highlight.kt`, no change to the body): the output of the fences must stay as it is, because highlight.js finds that class
+itself. Things to keep in mind there:
+
+- Order in `<head>`: highlight.js `<link>`s, the box `<style>`, the `css` entries, the scripts. Do not move the links
+  behind `css`, which would take the right of overriding them away from the user's stylesheets.
+- The script only highlights `pre > code[class*="language-"]` whose language `hljs.getLanguage` knows (no guessing for
+  plain fences, no console warnings for `mermaid`).
+- Default styles are derived from the last built-in `css` style; the table is in the README and in `Highlight.kt`.
+- `highlight-url` is either a directory (`highlight.min.js` in it, like the `@highlightjs/cdn-assets` package, cdnjs, unpkg) or the URL of the
+  script (a `.js` URL, with `styles/` next to it). The default is the unpinned official package, so it follows new major versions. Names that go into URLs are validated.
+- Check a change in a real browser (headless Chromium with `--dump-dom` and `--screenshot` works), not just by tests.
 
 ## Conventions
 

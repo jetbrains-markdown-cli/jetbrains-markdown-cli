@@ -21,8 +21,7 @@ internal object BuiltInStyles {
  * Without any entry the `default` style is used; `none` is how to get no style at all.
  */
 internal fun styleTags(context: TemplateContext): List<String> {
-    val entries = (context["css"]?.let(::cssEntries) ?: emptyList()).ifEmpty { listOf(BuiltInStyles.DEFAULT) }
-    return entries.flatMap { entry ->
+    return styleEntries(context).flatMap { entry ->
         when (entry) {
             BuiltInStyles.NONE -> emptyList()
             in BuiltInStyles.css -> {
@@ -33,6 +32,10 @@ internal fun styleTags(context: TemplateContext): List<String> {
         }
     }
 }
+
+/** The entries of the `css` variable, or the `default` style if there are none. */
+internal fun styleEntries(context: TemplateContext): List<String> =
+    (context["css"]?.let(::cssEntries) ?: emptyList()).ifEmpty { listOf(BuiltInStyles.DEFAULT) }
 
 /** The non-blank entries of [value], a single value or a list, trimmed. */
 private fun cssEntries(value: TemplateValue): List<String> =

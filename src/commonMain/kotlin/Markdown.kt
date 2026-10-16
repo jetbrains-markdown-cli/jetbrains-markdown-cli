@@ -64,9 +64,10 @@ private class CliFlavour(
  * The variable `title` is the document's `<title>`; without it the text of the first heading is used. With a `title`
  * the `<body>` starts with a title block (see [titleBlock]). `author` and `date` also become `<meta>` tags, and
  * `lang` the `lang` attribute of `<html>`. The variable `css` lists the styles, see [styleTags]: the built-in
- * `default` style unless set.
+ * `default` style unless set. With `highlight` the code blocks are highlighted by highlight.js, see [highlightStyleTags].
  *
  * @throws InvalidMetadataException if a YAML metadata block in [markdown] is not valid YAML
+ * @throws InvalidVariableException if a variable has a value it cannot have, see [highlightStyleTags]
  */
 fun markdownToHtml(
     markdown: String,
@@ -85,7 +86,7 @@ fun markdownToHtml(
         ?: firstHeadingText(rendered.tree, src).escapeHtml()
     val lang = context["lang"]?.asText()?.trim()?.takeIf { it.isNotEmpty() }
     val head = listOf("    <meta charset=\"UTF-8\">") + metaTags(context, flavour) +
-        "    <title>$title</title>" + styleTags(context)
+        "    <title>$title</title>" + highlightStyleTags(context) + styleTags(context) + highlightScriptTags(context)
     return """
         |<!DOCTYPE html>
         |<html${if (lang == null) "" else " lang=\"${lang.escapeHtml()}\""}>

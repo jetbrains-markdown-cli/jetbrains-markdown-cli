@@ -98,6 +98,7 @@ values to a list).
 | `abstract` | `<div class="abstract">` in the title block, titled `abstract-title` (default `Abstract`). It is Markdown blocks |
 | `lang`   | The `lang` attribute of `<html>` |
 | `css`    | The [styles](#styles) of the page: built-in ones by name, or the URLs of stylesheets. A list gives several. Without it, the `default` style is used |
+| `highlight`, `highlight-style`, `highlight-style-dark`, `highlight-url`, `highlight-languages` | [Syntax highlighting](#syntax-highlighting) of code fences with highlight.js |
 
 The title block is like the one of pandoc's HTML template:
 
@@ -148,6 +149,56 @@ The names are exact (`GitHub` or `./github` are file names). Styles come in the 
 override earlier ones. A `css` without any value stands for the `default` style, `none` is the way to turn it off.
 Styles are only added with `--standalone`.
 
+### Syntax highlighting
+
+With `-V highlight` (or `highlight=true`; `false` is off, which is the default, and anything else is an error) the code
+fences that have a language are highlighted in the browser by [highlight.js](https://highlightjs.org/), which is loaded
+from a CDN: the page then needs the network (or your own copy, see `highlight-url`), and without JavaScript the code
+stays plain. The output of the fences does not change, highlight.js finds `<code class="language-kotlin">` itself. Only
+fences with a language are highlighted (highlight.js would guess one for the others), and languages it does not know,
+such as `mermaid`, stay plain without a message in the console.
+
+```sh
+jetbrains-markdown-cli -s -V highlight README.md                                    # the style fits the css style
+jetbrains-markdown-cli -s -V highlight -V highlight-style=monokai-sublime README.md
+jetbrains-markdown-cli -s -V highlight -V highlight-languages=dockerfile -V highlight-languages=nginx README.md
+jetbrains-markdown-cli -s -V highlight -V highlight-url=vendor/highlightjs README.md   # your own copy
+```
+
+| Variable | Meaning |
+|----------|---------|
+| `highlight` | Turns it on |
+| `highlight-style` | The name of a [highlight.js style](https://highlightjs.org/examples) (`github`, `monokai-sublime`, `base16/solarized-light`, ...) or the URL of a stylesheet (it ends in `.css` or has a `://`). Without it, see below. Used for light and dark unless `highlight-style-dark` is set |
+| `highlight-style-dark` | The style for `prefers-color-scheme: dark`; `highlight-style` (or the derived light style) is then the one for light |
+| `highlight-url` | Where highlight.js comes from, by default `https://cdn.jsdelivr.net/npm/@highlightjs/cdn-assets` (the latest release of the official package; add `@11` or an exact version to pin it). Either a directory with `highlight.min.js`, `styles/NAME.min.css` and `languages/NAME.min.js` (also what cdnjs and unpkg have, or a local copy), or the URL of the script, whatever it is called, with `styles/` next to it |
+| `highlight-languages` | More languages to load, from `languages/NAME.min.js`. The script has the common ones (about 40, among them `kotlin`, `bash`, `json`, `yaml`, `xml`, `sql`); `dockerfile`, `nginx`, `powershell` and the like have to be named |
+
+The default style follows the [style of the page](#styles), the last built-in one in `css`:
+
+| `css` | Light | Dark |
+|-------|-------|------|
+| `default`, `intellij` | `idea` | `androidstudio` |
+| `github` | `github` | `github-dark` |
+| `none` or only your own stylesheets | `github` | none, as those pages are not dark |
+
+Since the light and dark styles are each linked with a `prefers-color-scheme` media query, they follow the browser, like
+the built-in styles. With `css=none` the highlight style still applies; it gives the code its own box.
+
+Conflicts with the styles of `css` are avoided like this:
+
+- The `<link>`s of highlight.js come first in the `<head>`, then the `css` entries in order, then the scripts. So every
+  entry of `css`, yours too, can override highlight.js, and the scripts are the last thing loaded.
+- highlight.js styles give code their own padding, background and text colour. With a built-in style and the derived
+  highlight style, a few rules next to the links make the code use the box of the page's `<pre>`, so there is just one.
+  If you choose a `highlight-style` it is the other way round: the theme's box is used (a dark theme such as `monokai-sublime`
+  stays readable on the light page). Without a built-in style nothing is added.
+- `css` and `highlight-style` are different things: `css=github` is the page style, not a highlight.js style.
+- The names are the file names of highlight.js (letters, digits, `.`, `_`, `-`, and `/` in style names); anything else is an error.
+
+`highlight-url` decides which script runs on the page. A document with a YAML metadata block can set it like any
+other variable, so do not render untrusted Markdown with `highlight` unless you set `highlight-url` (and
+`-V` wins over the document), ideally pinned to an exact version.
+
 Not (yet) like pandoc: `--file-scope`, the `sourcefile`/`outputfile` variables, `-M`/`--metadata`, `pagetitle`, `title-prefix`, `dir`, the other `<meta>` tags of pandoc's template, and finding defaults files in
 the user data directory. Variables are escaped when inserted into the HTML, while pandoc inserts `--variable` values as they are.
 
@@ -158,9 +209,9 @@ the user data directory. Variables are escaped when inserted into the HTML, whil
 The HTML aims to be as close as sensible to the IDE's Markdown → HTML export, minus what only makes sense in the IDE.
 Missing:
 
-- **Syntax highlighting** of code fences. The IDE colours tokens with its own lexers and the editor colour scheme, which
-  cannot be reused here. Fences are emitted as `<code class="language-xyz">`, so a client-side highlighter such as
-  highlight.js or Prism can be added to the page.
+- **Syntax highlighting** of code fences by the IDE's lexers and editor colour scheme, which cannot be reused here.
+  Fences are emitted as `<code class="language-xyz">`, and [`-V highlight`](#syntax-highlighting) adds highlight.js, which has its
+  own tokens and colours and needs a CDN or a local copy. Another client-side highlighter such as Prism can be added by hand.
 - **Diagram and formula rendering**, such as Mermaid, PlantUML and LaTeX math. The IDE renders them in its browser
   preview through extensions; here the fence is emitted as a plain code block, with the same `language-` class.
 - **Scripts and the IDE's look**: no JavaScript and no Content-Security-Policy `<meta>`. The [styles](#styles) are
@@ -175,11 +226,12 @@ Heading `id`s, indentation of the output and the default GitHub Flavored Markdow
 
 pandoc is much bigger, this tool only converts Markdown to HTML:
 
-- **Template variables**: only the [variables listed above](#template-variables) (`title`, `subtitle`, `author`, `date`, `abstract`, `lang`, `css`) are
+- **Template variables**: only the [variables listed above](#template-variables) (`title`, `subtitle`, `author`, `date`, `abstract`, `lang`, `css`, `highlight*`) are
   used by the `--standalone` skeleton. Other variables that pandoc's default HTML template knows (`header-includes`, `include-before`, `include-after`, `toc`, `keywords`, `math`, ...) can be set, but have no
   effect. There is no
   `--template` option either, so the skeleton cannot be replaced.
-- **Options**: no `--toc`, `-M`/`--metadata`, `--css`, `-H`/`-B`/`-A` (includes), `--wrap`, `--highlight-style`,
+- **Options**: no `--toc`, `-M`/`--metadata`, `--css`, `-H`/`-B`/`-A` (includes), `--wrap`, `--highlight-style` (it is the variable `highlight-style` here, for highlight.js, and highlighting is off by default,
+  while pandoc highlights on its own, with skylighting),
   `--mathjax`/`--katex`, `--filter`/`--lua-filter`, `--citeproc`, `--file-scope`, `--resource-path` or `--self-contained`.
   Keys of a [defaults file](#options) that are not supported are ignored with a warning.
 - **Other formats**: Markdown is the only input and HTML the only output; no `-f`/`-t` selection of formats and no

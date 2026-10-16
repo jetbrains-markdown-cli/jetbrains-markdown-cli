@@ -552,6 +552,211 @@ class StyleVariableTest {
     }
 }
 
+class HighlightVariableTest {
+    private fun text(value: String) = TemplateValue.Text(value)
+
+    private fun items(vararg values: String) = TemplateValue.Items(values.map(::text))
+
+    private val on = "highlight" to TemplateValue.Flag(true)
+
+    private fun html(vararg variables: Pair<String, TemplateValue>, markdown: String = "# Heading\n\n```kotlin\nval x = 1\n```\n") =
+        markdownToHtml(markdown, standalone = true, variables = mapOf(*variables))
+
+    private fun links(document: String) = Regex("<link [^>]*>").findAll(document).map { it.value }.toList()
+
+    private fun scripts(document: String) = Regex("<script src=\"([^\"]+)\" defer></script>").findAll(document).map { it.groupValues[1] }.toList()
+
+    private val base = DEFAULT_HIGHLIGHT_URL
+
+    @Test
+    fun isOffByDefault() {
+        for (document in listOf(html(), html("highlight" to TemplateValue.Flag(false)), html("highlight" to text("false")), html("highlight" to text("")))) {
+            assertFalse("<script" in document, document)
+            assertFalse("<link" in document, document)
+            assertFalse("highlight.min.js" in document, document)
+        }
+    }
+
+    @Test
+    fun valuesOfHighlight() {
+        for (value in listOf(TemplateValue.Flag(true), text("true"), text("TRUE"), text(" true "), items("false", "true"))) {
+            assertTrue("<script" in html("highlight" to value), value.toString())
+        }
+        assertFalse("<script" in html("highlight" to items("true", "false")))
+    }
+
+    @Test
+    fun rejectsOtherValues() {
+        for (value in listOf(text("ture"), text("yes"), TemplateValue.Fields(emptyMap()))) {
+            val error = assertFailsWith<InvalidVariableException> { html("highlight" to value) }
+            assertContains(error.message.orEmpty(), "`highlight`")
+        }
+    }
+
+    @Test
+    fun loadsHighlightJsFromTheOfficialPackage() {
+        val document = html(on)
+        assertEquals(listOf("$base/highlight.min.js"), scripts(document))
+        assertEquals("https://cdn.jsdelivr.net/npm/@highlightjs/cdn-assets", base)
+        assertEquals(
+            listOf(
+                "<link rel=\"stylesheet\" href=\"$base/styles/idea.min.css\" media=\"not all and (prefers-color-scheme: dark)\">",
+                "<link rel=\"stylesheet\" href=\"$base/styles/androidstudio.min.css\" media=\"(prefers-color-scheme: dark)\">",
+            ),
+            links(document),
+        )
+    }
+
+    @Test
+    fun findsTheFencesOfTheGeneratedMarkup() {
+        // The markup the script looks for: the class of the <code> in a <pre>.
+        assertContains(html(on), "<pre><code class=\"language-kotlin\">")
+        assertContains(html(on), "pre > code[class*=\"language-\"]")
+        assertContains(html(on), "hljs.getLanguage(match[1])")
+        assertContains(html(on), "hljs.highlightElement(code)")
+    }
+
+    @Test
+    fun scriptsComeAfterTheDeferredFiles() {
+        val document = html(on, "highlight-languages" to items("dockerfile", "nginx"))
+        assertEquals(listOf("$base/highlight.min.js", "$base/languages/dockerfile.min.js", "$base/languages/nginx.min.js"), scripts(document))
+        assertTrue(document.indexOf("nginx.min.js") < document.indexOf("DOMContentLoaded"))
+        assertContains(html(on, "highlight-languages" to text("go")), "$base/languages/go.min.js")
+    }
+
+    @Test
+    fun styleFollowsTheBuiltInStyle() {
+        fun styles(vararg variables: Pair<String, TemplateValue>) = links(html(on, *variables)).map { it.substringAfter("styles/").substringBefore(".min.css") }
+        assertEquals(listOf("idea", "androidstudio"), styles())
+        assertEquals(listOf("idea", "androidstudio"), styles("css" to text("default")))
+        assertEquals(listOf("idea", "androidstudio"), styles("css" to text("intellij")))
+        assertEquals(listOf("github", "github-dark"), styles("css" to text("github")))
+        // The last built-in style wins the cascade, so it decides.
+        assertEquals(listOf("github", "github-dark"), styles("css" to items("intellij", "github")))
+        assertEquals(listOf("idea", "androidstudio"), styles("css" to items("github", "intellij", "none")))
+    }
+
+    @Test
+    fun withoutABuiltInStyleThePageIsLightAndGithub() {
+        assertEquals(listOf("<link rel=\"stylesheet\" href=\"$base/styles/github.min.css\">"), links(html(on, "css" to text("none"))))
+        // The stylesheets of the page are linked after the one of highlight.js; none of them is derived from.
+        val custom = links(html(on, "css" to items("none", "my.css")))
+        assertEquals(listOf("$base/styles/github.min.css", "my.css"), custom.map { it.substringAfter("href=\"").substringBefore("\"") })
+    }
+
+    @Test
+    fun explicitStylesReplaceTheDerivedOnes() {
+        assertEquals(
+            listOf("<link rel=\"stylesheet\" href=\"$base/styles/monokai-sublime.min.css\">"),
+            links(html(on, "highlight-style" to text("monokai-sublime"))),
+        )
+        assertEquals(
+            listOf("$base/styles/idea.min.css", "$base/styles/vs2015.min.css"),
+            links(html(on, "highlight-style-dark" to text("vs2015"))).map { it.substringAfter("href=\"").substringBefore("\"") },
+        )
+        val both = links(html(on, "highlight-style" to text("base16/solarized-light"), "highlight-style-dark" to text("base16/solarized-dark")))
+        assertContains(both[0], "$base/styles/base16/solarized-light.min.css")
+        assertContains(both[0], "media=\"not all and (prefers-color-scheme: dark)\"")
+        assertContains(both[1], "$base/styles/base16/solarized-dark.min.css")
+        assertContains(both[1], "media=\"(prefers-color-scheme: dark)\"")
+        assertEquals(1, links(html(on, "highlight-style" to text("github-dark"), "css" to text("github"))).size)
+    }
+
+    @Test
+    fun aStyleMayBeAStylesheet() {
+        assertContains(html(on, "highlight-style" to text("themes/mine.css")), "<link rel=\"stylesheet\" href=\"themes/mine.css\">")
+        assertContains(html(on, "highlight-style" to text("https://example.com/a.css?x=1&y=2")), "href=\"https://example.com/a.css?x=1&amp;y=2\"")
+        assertContains(html(on, "highlight-style" to text("https://example.com/theme")), "href=\"https://example.com/theme\"")
+    }
+
+    @Test
+    fun urlIsADirectoryOrTheScript() {
+        fun urls(url: String, vararg more: Pair<String, TemplateValue>): List<String> {
+            val document = html(on, "highlight-url" to text(url), "highlight-style" to text("monokai-sublime"), *more)
+            return scripts(document) + links(document).map { it.substringAfter("href=\"").substringBefore("\"") }
+        }
+        assertEquals(listOf("vendor/hljs/highlight.min.js", "vendor/hljs/styles/monokai-sublime.min.css"), urls("vendor/hljs"))
+        assertEquals(listOf("https://cdnjs.example/hljs/highlight.min.js", "https://cdnjs.example/hljs/styles/monokai-sublime.min.css"), urls("https://cdnjs.example/hljs/"))
+        assertEquals(
+            listOf(
+                "https://example.com/lib/hljs.js",
+                "https://example.com/lib/styles/monokai-sublime.min.css",
+            ),
+            urls("https://example.com/lib/hljs.js"),
+        )
+        assertEquals(listOf("/hljs.js", "/styles/monokai-sublime.min.css"), urls("/hljs.js"))
+        assertEquals(listOf("hljs.js", "styles/monokai-sublime.min.css"), urls("hljs.js"))
+        assertEquals(listOf("/a/hl.js?v=1/2", "/a/styles/monokai-sublime.min.css"), urls("/a/hl.js?v=1/2"))
+        assertEquals(listOf("/highlight.min.js", "/styles/monokai-sublime.min.css"), urls("/"))
+        assertEquals(listOf("$base/highlight.min.js", "$base/styles/monokai-sublime.min.css"), urls("  "))
+        assertContains(html(on, "highlight-url" to text("a\"b")), "src=\"a&quot;b/highlight.min.js\"")
+    }
+
+    @Test
+    fun rejectsNamesThatAreNotFileNames() {
+        for (variable in listOf("highlight-style", "highlight-style-dark", "highlight-languages")) {
+            for (name in listOf("../x", "a/../b", "\"><b>", "a b")) {
+                val error = assertFailsWith<InvalidVariableException>("$variable $name") { html(on, variable to text(name)) }
+                assertContains(error.message.orEmpty(), "`$variable`")
+            }
+        }
+        assertFailsWith<InvalidVariableException> { html(on, "highlight-languages" to text("a/b")) }
+        assertFailsWith<InvalidVariableException> { html(on, "highlight-style" to text("/etc/x")) }
+    }
+
+    @Test
+    fun linksComeBeforeTheStylesAndScriptsAfter() {
+        val document = html(on, "css" to items("github", "my.css"))
+        val head = document.substringBefore("</head>")
+        val order = listOf("<title>", "styles/github.min.css", "<style>", "href=\"my.css\"", "highlight.min.js", "DOMContentLoaded").map { head.indexOf(it) }
+        assertTrue(order.all { it >= 0 }, head)
+        assertEquals(order.sorted(), order, head)
+    }
+
+    @Test
+    fun bodyAndOtherOutputAreUnchanged() {
+        val body = { document: String -> document.substringAfter("<body>").substringBefore("</body>") }
+        assertEquals(body(html()), body(html(on)))
+        assertEquals("<h1 id=\"heading\">Heading</h1>\n", markdownToHtml("# Heading\n", variables = mapOf(on)))
+        assertEquals(html(), html("highlight-url" to text("x"), "highlight-style" to text("../invalid")))
+    }
+
+    @Test
+    fun derivedStylesTakeTheBoxOfThePre() {
+        for (alias in listOf("default", "intellij", "github")) {
+            val head = html(on, "css" to text(alias)).substringBefore("</head>")
+            val rule = head.substringAfter("pre code.hljs {").substringBefore("}")
+            assertContains(rule, "background: transparent;", message = alias)
+            assertContains(rule, "color: inherit;", message = alias)
+            assertContains(rule, "padding: 0;", message = alias)
+            assertFalse("pre:has" in head, alias)
+            // Before the style of the page, so that is what overrides them; after the style of highlight.js.
+            assertTrue(head.indexOf(".min.css") < head.indexOf("pre code.hljs {"), alias)
+            assertTrue(head.indexOf("pre code.hljs {") < head.indexOf("--foreground"), alias)
+        }
+    }
+
+    @Test
+    fun requestedStylesKeepTheirOwnBox() {
+        for (variable in listOf("highlight-style", "highlight-style-dark")) {
+            val head = html(on, variable to text("monokai-sublime")).substringBefore("</head>")
+            assertContains(head, "pre:has(> code.hljs) {\n        padding: 0;\n        background: none;\n      }")
+            assertFalse("pre code.hljs" in head, variable)
+            assertFalse("color: inherit" in head.substringBefore("--foreground"), variable)
+        }
+    }
+
+    @Test
+    fun noBoxRulesWithoutABuiltInStyle() {
+        for (css in listOf(text("none"), items("none", "my.css"), text("my.css"))) {
+            for (extra in listOf(emptyArray(), arrayOf("highlight-style" to text("monokai-sublime")))) {
+                val head = html(on, "css" to css, *extra).substringBefore("</head>")
+                assertFalse("<style>" in head, "$css $extra")
+            }
+        }
+    }
+}
+
 class MetadataBlockTest {
     private fun text(value: String) = TemplateValue.Text(value)
 
@@ -998,6 +1203,28 @@ class MarkdownCliTest {
         assertEquals(listOf("<link rel=\"stylesheet\" href=\"doc.css\">"), styles(input = "---\ncss: doc.css\n---\n"))
         assertEquals(listOf("<style>", "<link rel=\"stylesheet\" href=\"extra.css\">"), styles("-d", "defaults.yaml"))
         assertEquals(emptyList(), styles("-d", "defaults.yaml", "-V", "css=none"))
+    }
+
+    @Test
+    fun highlightWorksFromEveryMethod() {
+        val files = mapOf("meta.yaml" to "highlight: true\nhighlight-style: a11y-dark\n", "d.yaml" to "variables:\n  highlight: true\n  highlight-url: ./hl\n")
+        fun scripts(vararg args: String, input: String = "# T\n") = run("-s", *args, input = input, files = files).lines().filter { "<script src" in it }.map { it.trim() }
+
+        assertEquals(emptyList(), scripts())
+        assertEquals(listOf("<script src=\"$DEFAULT_HIGHLIGHT_URL/highlight.min.js\" defer></script>"), scripts("-V", "highlight"))
+        assertEquals(listOf("<script src=\"$DEFAULT_HIGHLIGHT_URL/highlight.min.js\" defer></script>"), scripts("-V", "highlight=true"))
+        assertEquals(listOf("<script src=\"./hl/highlight.min.js\" defer></script>"), scripts("-d", "d.yaml"))
+        assertEquals(emptyList(), scripts("-d", "d.yaml", "-V", "highlight=false"))
+        assertEquals(1, scripts("--metadata-file", "meta.yaml").size)
+        assertEquals(1, scripts(input = "---\nhighlight: true\n---\n").size)
+        assertContains(run("-s", "--metadata-file", "meta.yaml", files = files), "styles/a11y-dark.min.css")
+    }
+
+    @Test
+    fun rejectsInvalidHighlightVariables() {
+        val error = assertFailsWith<CliktError> { run("-s", "-V", "highlight=ture") }
+        assertContains(error.message.orEmpty(), "`highlight`")
+        assertFailsWith<CliktError> { run("-s", "-V", "highlight", "-V", "highlight-style=../x") }
     }
 
     @Test
