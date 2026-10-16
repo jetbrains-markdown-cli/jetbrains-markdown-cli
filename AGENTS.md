@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Kotlin/Native command line tool: reads GitHub Flavored Markdown on stdin, writes HTML to stdout.
+Kotlin/Native command line tool: reads GitHub Flavored Markdown on stdin, writes HTML to stdout (a complete document with `--standalone`).
 The goal is to produce HTML as close as sensible to what IntelliJ's *Markdown → HTML export* produces
 (minus IDE-only features, see [Differences from the IDE export](#differences-from-the-ide-export)).
 
@@ -28,7 +28,7 @@ Where to look in the plugin (all under `plugins/markdown/core/src/org/intellij/p
 
 ## Layout
 
-- `src/commonMain/kotlin/Markdown.kt`: `markdownToHtml()` and the flavour (GFM + anchored headings).
+- `src/commonMain/kotlin/Markdown.kt`: `markdownToHtml()`, the flavour (GFM + anchored headings) and, with `standalone`, the document skeleton.
 - `src/commonMain/kotlin/HeadingAnchors.kt`: port of the plugin's heading anchor logic.
 - `src/commonMain/kotlin/PrettyTagRenderer.kt`: indents block tags; leaves `<pre>` content untouched.
 - `src/commonMain/kotlin/MarkdownCli.kt`: the command line interface ([Clikt](https://github.com/ajalt/clikt)); options are declared
@@ -59,6 +59,8 @@ linuxArm64 is cross-compiled and smoke-tested by a separate CI job. Locally you 
 - **The generator emits some tags as raw HTML** (`<pre>`, `<thead>`, `<tbody>`, HTML blocks) instead of through
   `TagRenderer.openTag/closeTag`, so `PrettyTagRenderer.printHtml` has to recognize them. If indentation looks off
   for a new construct, check which of the two paths it takes.
+- The library wraps the document in `<body>` (the `MARKDOWN_FILE` provider). Without `--standalone` that provider is
+  removed and the output is just the content (like `pandoc` without `-s`); the `<head>` is added by `markdownToHtml`.
 - **Clikt 5.1.0 and the native compiler cache:** linking the *debug test* binary fails with `duplicate symbol ...
   selfAndAncestors` (defined in both `clikt` and `clikt-mordant`). `build.gradle.kts` therefore calls
   `disableNativeCache` for test executables only; release binaries link fine. Re-check when updating Clikt or Kotlin.

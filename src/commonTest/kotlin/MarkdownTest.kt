@@ -28,6 +28,23 @@ class MarkdownTest {
     }
 
     @Test
+    fun fragmentHasNoDocumentSkeleton() {
+        val html = markdownToHtml("# Title\n\ntext\n")
+        assertEquals("<h1 id=\"title\">Title</h1>\n<p>text</p>\n", html)
+        assertEquals("", markdownToHtml(""))
+    }
+
+    @Test
+    fun standaloneWrapsBodyInHtmlSkeleton() {
+        val html = markdownToHtml("# A & B\n\ntext\n", standalone = true)
+        assertTrue(html.startsWith("<!DOCTYPE html>\n<html>\n  <head>\n"), html)
+        assertContains(html, "<meta charset=\"UTF-8\">")
+        assertContains(html, "<title>A &amp; B</title>")
+        assertContains(html, "  <body>\n    <h1 id=\"a--b\">A &amp; B</h1>\n    <p>text</p>\n  </body>\n")
+        assertTrue(html.endsWith("  </body>\n</html>\n"), html)
+    }
+
+    @Test
     fun headingIdsMatchIntelliJAnchors() {
         val html = markdownToHtml(
             "# jetbrains-markdown-cli\n\n## Foo & Bar: `x`!\n\n## Foo\n\n## Foo\n\nSetext\n------\n"
@@ -46,17 +63,23 @@ class MarkdownTest {
 
     @Test
     fun indentsBlocksOnSeparateLines() {
-        val html = markdownToHtml("- a\n- b\n\n| a |\n|---|\n| 1 |\n")
-        assertContains(html, "<body>\n  <ul>\n    <li>a</li>\n    <li>b</li>\n  </ul>\n")
-        assertContains(html, "  <table>\n    <thead>\n      <tr>\n        <th>a</th>\n")
-        assertTrue(html.endsWith("</body>\n"), html)
+        val src = "- a\n- b\n\n| a |\n|---|\n| 1 |\n"
+        val html = markdownToHtml(src)
+        assertContains(html, "<ul>\n  <li>a</li>\n  <li>b</li>\n</ul>\n")
+        assertContains(html, "<table>\n  <thead>\n    <tr>\n      <th>a</th>\n")
+        val document = markdownToHtml(src, standalone = true)
+        assertContains(document, "    <ul>\n      <li>a</li>\n      <li>b</li>\n    </ul>\n")
+        assertContains(document, "    <table>\n      <thead>\n        <tr>\n          <th>a</th>\n")
     }
 
     @Test
     fun keepsCodeBlockContentUntouched() {
-        val html = markdownToHtml("```sh\nfoo\n  bar\n```\n")
-        assertContains(html, "  <pre><code class=\"language-sh\">foo\n  bar\n</code></pre>\n")
-        assertFalse(html.contains("</code>\n"), html)
+        val src = "```sh\nfoo\n  bar\n```\n"
+        val html = markdownToHtml(src)
+        assertEquals("<pre><code class=\"language-sh\">foo\n  bar\n</code></pre>\n", html)
+        val document = markdownToHtml(src, standalone = true)
+        assertContains(document, "    <pre><code class=\"language-sh\">foo\n  bar\n</code></pre>\n")
+        assertFalse(document.contains("</code>\n"), document)
     }
 }
 
@@ -69,7 +92,18 @@ class MarkdownCliTest {
 
     @Test
     fun writesHtmlForInput() {
-        assertContains(run(), "<h1 id=\"title\">Title</h1>")
+        assertEquals("<h1 id=\"title\">Title</h1>\n", run())
+    }
+
+    @Test
+    fun standaloneOptionWritesCompleteDocument() {
+        for (option in listOf("-s", "--standalone")) {
+            val html = run(option)
+            assertTrue(html.startsWith("<!DOCTYPE html>\n<html>\n"), html)
+            assertContains(html, "<title>Title</title>")
+            assertContains(html, "<h1 id=\"title\">Title</h1>")
+        }
+        assertEquals(run("-s"), markdownToHtml("# Title\n", standalone = true))
     }
 
     @Test

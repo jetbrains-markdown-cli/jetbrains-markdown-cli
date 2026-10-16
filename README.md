@@ -6,12 +6,28 @@ Reads Markdown (GitHub Flavored Markdown) from stdin and writes HTML to stdout:
 
 ```sh
 echo '# Hello *world*' | jetbrains-markdown-cli
-# <body>
-#   <h1 id="hello-world">Hello <em>world</em></h1>
-# </body>
+# <h1 id="hello-world">Hello <em>world</em></h1>
 ```
 
 The output is indented, and headings get `id`s computed like in IntelliJ's Markdown preview.
+
+With `-s`/`--standalone` the output is a complete HTML document (like `pandoc --standalone`) instead of just the content:
+
+```sh
+echo '# Hello *world*' | jetbrains-markdown-cli --standalone
+# <!DOCTYPE html>
+# <html>
+#   <head>
+#     <meta charset="UTF-8">
+#     <title>Hello *world*</title>
+#   </head>
+#   <body>
+#     <h1 id="hello-world">Hello <em>world</em></h1>
+#   </body>
+# </html>
+```
+
+The `<title>` is the text of the first heading.
 
 Run `jetbrains-markdown-cli --help` for the available options.
 
