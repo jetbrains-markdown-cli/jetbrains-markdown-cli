@@ -48,6 +48,7 @@ kotlin {
         commonMain.dependencies {
             implementation("org.jetbrains:markdown:0.7.16")
             implementation("com.github.ajalt.clikt:clikt:5.1.0")
+            implementation("it.krzeminski:snakeyaml-engine-kmp:5.0.0")
         }
         commonTest.dependencies {
             implementation(kotlin("test"))

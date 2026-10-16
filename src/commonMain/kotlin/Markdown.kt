@@ -55,13 +55,15 @@ private class CliFlavour(
  * Converts [markdown] to HTML: the document's content, or, if [standalone], a complete HTML document
  * (doctype, `<head>` and `<body>`) like `pandoc --standalone` produces.
  *
- * [variables] are the template variables of the document skeleton.
+ * [variables] and [metadata] are the template variables of the document skeleton. Variables take
+ * precedence over metadata.
  */
 fun markdownToHtml(
     markdown: String,
     flavour: Flavour = Flavour.DEFAULT,
     standalone: Boolean = false,
     variables: TemplateContext = emptyMap(),
+    metadata: TemplateContext = emptyMap(),
 ): String {
     // The parser requires LF line endings, see the JetBrains/markdown README.
     val src = markdown.replace("\r\n", "\n").replace("\r", "\n")

@@ -1,3 +1,4 @@
+import com.github.ajalt.clikt.core.CliktError
 import com.github.ajalt.clikt.core.parse
 import com.github.ajalt.clikt.core.BadParameterValue
 import com.github.ajalt.clikt.core.UsageError
@@ -146,10 +147,85 @@ class TemplateVariablesTest {
     }
 }
 
+class MetadataTest {
+    private fun text(value: String) = TemplateValue.Text(value)
+
+    @Test
+    fun parsesMappingIntoTemplateValues() {
+        val fields = parseYamlFields(
+            """
+            |title: A Title
+            |draft: true
+            |number: 1.50
+            |nothing:
+            |author:
+            |  - A
+            |  - B
+            |meta:
+            |  key: value
+            """.trimMargin()
+        )
+        assertEquals(text("A Title"), fields["title"])
+        assertEquals(TemplateValue.Flag(true), fields["draft"])
+        assertEquals(text("1.50"), fields["number"])
+        assertEquals(text(""), fields["nothing"])
+        assertEquals(TemplateValue.Items(listOf(text("A"), text("B"))), fields["author"])
+        assertEquals(TemplateValue.Fields(mapOf("key" to text("value"))), fields["meta"])
+    }
+
+    @Test
+    fun quotedScalarsStayText() {
+        val fields = parseYamlFields("a: 'true'\nb: \"null\"\nc: no\n")
+        assertEquals(text("true"), fields["a"])
+        assertEquals(text("null"), fields["b"])
+        assertEquals(text("no"), fields["c"])
+    }
+
+    @Test
+    fun emptyYamlHasNoFields() {
+        assertEquals(emptyMap(), parseYamlFields(""))
+        assertEquals(emptyMap(), parseYamlFields("# just a comment\n"))
+    }
+
+    @Test
+    fun ignoresByteOrderMark() {
+        assertEquals(text("x"), parseYamlFields("\uFEFFtitle: x")["title"])
+    }
+
+    @Test
+    fun rejectsInvalidYamlAndNonMappings() {
+        assertFailsWith<IllegalArgumentException> { parseYamlFields("title: [a") }
+        assertFailsWith<IllegalArgumentException> { parseYamlFields("- a\n- b\n") }
+        assertFailsWith<IllegalArgumentException> { parseYamlFields("just text") }
+        assertFailsWith<IllegalArgumentException> { parseYamlFields("? [a]\n: b\n") }
+    }
+
+    @Test
+    fun rejectsRecursiveStructures() {
+        assertFailsWith<IllegalArgumentException> { parseYamlFields("a: &x [*x]") }
+    }
+
+    @Test
+    fun laterLayersReplaceTopLevelFields() {
+        val merged = mergeMetadata(
+            listOf(
+                mapOf("title" to text("one"), "author" to TemplateValue.Items(listOf(text("a")))),
+                mapOf("title" to text("two")),
+            )
+        )
+        assertEquals(text("two"), merged["title"])
+        assertEquals(TemplateValue.Items(listOf(text("a"))), merged["author"])
+    }
+}
+
 class MarkdownCliTest {
-    private fun run(vararg args: String, input: String = "# Title\n"): String {
+    private fun run(
+        vararg args: String,
+        input: String = "# Title\n",
+        files: Map<String, String> = emptyMap(),
+    ): String {
         var output = ""
-        MarkdownCli(readInput = { input }, write = { output += it }).parse(args.toList())
+        MarkdownCli(readInput = { input }, write = { output += it }, readFile = { files[it] }).parse(args.toList())
         return output
     }
 
@@ -199,6 +275,27 @@ class MarkdownCliTest {
     @Test
     fun rejectsVariableWithoutName() {
         assertFailsWith<BadParameterValue> { run("-V", "=Hello") }
+    }
+
+    @Test
+    fun readsMetadataFiles() {
+        val files = mapOf("a.yaml" to "title: A\n", "b.yaml" to "")
+        assertEquals(run(), run("--metadata-file", "a.yaml", "--metadata-file", "b.yaml", files = files))
+    }
+
+    @Test
+    fun rejectsMissingMetadataFile() {
+        val error = assertFailsWith<CliktError> { run("--metadata-file", "nope.yaml") }
+        assertContains(error.message.orEmpty(), "nope.yaml")
+    }
+
+    @Test
+    fun rejectsInvalidMetadataFile() {
+        val files = mapOf("bad.yaml" to "- a\n", "broken.yaml" to "a: [b")
+        for (name in files.keys) {
+            val error = assertFailsWith<CliktError> { run("--metadata-file", name, files = files) }
+            assertContains(error.message.orEmpty(), name)
+        }
     }
 
     @Test
