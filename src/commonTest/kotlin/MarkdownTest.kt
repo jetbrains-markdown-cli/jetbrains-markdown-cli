@@ -4,6 +4,8 @@ import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class MarkdownTest {
     @Test
@@ -40,6 +42,21 @@ class MarkdownTest {
     @Test
     fun headingIdKeepsNonAsciiLetters() {
         assertContains(markdownToHtml("# Grüße_1\n"), "<h1 id=\"grüße_1\">")
+    }
+
+    @Test
+    fun indentsBlocksOnSeparateLines() {
+        val html = markdownToHtml("- a\n- b\n\n| a |\n|---|\n| 1 |\n")
+        assertContains(html, "<body>\n  <ul>\n    <li>a</li>\n    <li>b</li>\n  </ul>\n")
+        assertContains(html, "  <table>\n    <thead>\n      <tr>\n        <th>a</th>\n")
+        assertTrue(html.endsWith("</body>\n"), html)
+    }
+
+    @Test
+    fun keepsCodeBlockContentUntouched() {
+        val html = markdownToHtml("```sh\nfoo\n  bar\n```\n")
+        assertContains(html, "  <pre><code class=\"language-sh\">foo\n  bar\n</code></pre>\n")
+        assertFalse(html.contains("</code>\n"), html)
     }
 }
 

@@ -23,11 +23,14 @@ Where to look in the plugin (all under `plugins/markdown/core/src/org/intellij/p
 - Heading `id`s: `ui/preview/html/HeaderGeneratingProvider.kt`, `HeaderAnchorCache.kt`, `lang/psi/impl/MarkdownHeader.kt`
 - Code fences / syntax highlighting: `ui/preview/html/DefaultCodeFenceGeneratingProvider.kt`,
   `extensions/common/highlighter/` (and `HtmlSyntaxHighlighter.kt` in `platform/markdown-utils` of intellij-community)
+- Page skeleton and export: `plugins/markdown/jcef/src/com/intellij/markdown/jcef/preview/MarkdownJCEFHtmlPanel.kt`
+  (`buildIndexResource`) and `.../HtmlExporter.kt` (Jsoup pretty printing)
 
 ## Layout
 
 - `src/commonMain/kotlin/Markdown.kt`: `markdownToHtml()` and the flavour (GFM + anchored headings).
 - `src/commonMain/kotlin/HeadingAnchors.kt`: port of the plugin's heading anchor logic.
+- `src/commonMain/kotlin/PrettyTagRenderer.kt`: indents block tags; leaves `<pre>` content untouched.
 - `src/commonMain/kotlin/MarkdownCli.kt`: the command line interface ([Clikt](https://github.com/ajalt/clikt)); options are declared
   here. Input/output are injected so it can be tested without stdin/stdout.
 - `src/nativeMain/kotlin/Main.kt`: reads stdin and runs `MarkdownCli`.
@@ -53,6 +56,9 @@ linuxArm64 is cross-compiled and smoke-tested by a separate CI job. Locally you 
 - **Kotlin/Native regex is not `java.util.regex`.** `\p{IsAlphabetic}` throws, and negated classes containing
   `\p{..}` (e.g. `[^\p{L}0-9_ -]`) silently match the wrong characters. Filter by `Char.category` instead
   (see `HeadingAnchors.kt`). Verify any new regex on a native target, not just by reading it.
+- **The generator emits some tags as raw HTML** (`<pre>`, `<thead>`, `<tbody>`, HTML blocks) instead of through
+  `TagRenderer.openTag/closeTag`, so `PrettyTagRenderer.printHtml` has to recognize them. If indentation looks off
+  for a new construct, check which of the two paths it takes.
 - **Clikt 5.1.0 and the native compiler cache:** linking the *debug test* binary fails with `duplicate symbol ...
   selfAndAncestors` (defined in both `clikt` and `clikt-mordant`). `build.gradle.kts` therefore calls
   `disableNativeCache` for test executables only; release binaries link fine. Re-check when updating Clikt or Kotlin.

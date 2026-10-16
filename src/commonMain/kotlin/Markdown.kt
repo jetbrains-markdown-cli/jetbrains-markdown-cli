@@ -3,6 +3,7 @@ import org.intellij.markdown.MarkdownElementTypes
 import org.intellij.markdown.flavours.MarkdownFlavourDescriptor
 import org.intellij.markdown.flavours.gfm.GFMFlavourDescriptor
 import org.intellij.markdown.html.GeneratingProvider
+import org.intellij.markdown.html.DUMMY_ATTRIBUTES_CUSTOMIZER
 import org.intellij.markdown.html.HtmlGenerator
 import org.intellij.markdown.html.URI
 import org.intellij.markdown.parser.CancellationToken
@@ -33,5 +34,7 @@ fun markdownToHtml(markdown: String): String {
     val flavour = CliFlavour()
     val tree = MarkdownParser(flavour, cancellationToken = CancellationToken.NonCancellable)
         .buildMarkdownTreeFromString(src as CharSequence)
-    return HtmlGenerator(src, tree, flavour).generateHtml()
+    val renderer = PrettyTagRenderer(HtmlGenerator.DefaultTagRenderer(DUMMY_ATTRIBUTES_CUSTOMIZER, false), baseLevel = 0)
+    // Every block starts with a line break; the first one is not wanted at the start of the output.
+    return HtmlGenerator(src, tree, flavour).generateHtml(renderer).trimStart('\n') + "\n"
 }
