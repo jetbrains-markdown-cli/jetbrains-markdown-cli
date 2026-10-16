@@ -80,7 +80,7 @@ jobs:
         run: |
           out=$(printf '# Hello\n\nsome *markdown*\n' | build/bin/${{ matrix.binDir }}/releaseExecutable/${{ matrix.exe }})
           echo "$out"
-          [[ "$out" == *"<h1>Hello</h1>"* && "$out" == *"<em>markdown</em>"* ]]
+          [[ "$out" == *"<h1 id=\"hello\">Hello</h1>"* && "$out" == *"<em>markdown</em>"* ]]
 
       - name: Package
         shell: bash
@@ -117,7 +117,7 @@ jobs:
           tar -xzf jetbrains-markdown-cli-linux-arm64.tar.gz
           out=$(printf '# Hello\n\nsome *markdown*\n' | jetbrains-markdown-cli-linux-arm64/jetbrains-markdown-cli)
           echo "$out"
-          [[ "$out" == *"<h1>Hello</h1>"* && "$out" == *"<em>markdown</em>"* ]]
+          [[ "$out" == *"<h1 id=\"hello\">Hello</h1>"* && "$out" == *"<em>markdown</em>"* ]]
 
   release:
     name: Release

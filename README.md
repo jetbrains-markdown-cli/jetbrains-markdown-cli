@@ -6,8 +6,10 @@ Reads Markdown (GitHub Flavored Markdown) from stdin and writes HTML to stdout:
 
 ```sh
 echo '# Hello *world*' | jetbrains-markdown-cli
-# <body><h1>Hello <em>world</em></h1></body>
+# <body><h1 id="hello-world">Hello <em>world</em></h1></body>
 ```
+
+Headings get `id`s computed like in IntelliJ's Markdown preview.
 
 Run `jetbrains-markdown-cli --help` for the available options.
 

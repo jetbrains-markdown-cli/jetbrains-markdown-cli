@@ -20,12 +20,14 @@ no sources, so look up the library API in its repository (or let the compiler te
 Where to look in the plugin (all under `plugins/markdown/core/src/org/intellij/plugins/markdown/` unless noted):
 
 - HTML generation setup: `lang/parser/MarkdownDefaultFlavour.kt`
+- Heading `id`s: `ui/preview/html/HeaderGeneratingProvider.kt`, `HeaderAnchorCache.kt`, `lang/psi/impl/MarkdownHeader.kt`
 - Code fences / syntax highlighting: `ui/preview/html/DefaultCodeFenceGeneratingProvider.kt`,
   `extensions/common/highlighter/` (and `HtmlSyntaxHighlighter.kt` in `platform/markdown-utils` of intellij-community)
 
 ## Layout
 
-- `src/commonMain/kotlin/Markdown.kt`: `markdownToHtml()`.
+- `src/commonMain/kotlin/Markdown.kt`: `markdownToHtml()` and the flavour (GFM + anchored headings).
+- `src/commonMain/kotlin/HeadingAnchors.kt`: port of the plugin's heading anchor logic.
 - `src/commonMain/kotlin/MarkdownCli.kt`: the command line interface ([Clikt](https://github.com/ajalt/clikt)); options are declared
   here. Input/output are injected so it can be tested without stdin/stdout.
 - `src/nativeMain/kotlin/Main.kt`: reads stdin and runs `MarkdownCli`.
@@ -48,11 +50,16 @@ linuxArm64 is cross-compiled and smoke-tested by a separate CI job. Locally you 
 
 ## Gotchas
 
+- **Kotlin/Native regex is not `java.util.regex`.** `\p{IsAlphabetic}` throws, and negated classes containing
+  `\p{..}` (e.g. `[^\p{L}0-9_ -]`) silently match the wrong characters. Filter by `Char.category` instead
+  (see `HeadingAnchors.kt`). Verify any new regex on a native target, not just by reading it.
 - **Clikt 5.1.0 and the native compiler cache:** linking the *debug test* binary fails with `duplicate symbol ...
   selfAndAncestors` (defined in both `clikt` and `clikt-mordant`). `build.gradle.kts` therefore calls
   `disableNativeCache` for test executables only; release binaries link fine. Re-check when updating Clikt or Kotlin.
 - Input is normalized to LF before parsing (the library requires it); keep that.
-- CI smoke tests (`build.yml`) assert on exact output fragments such as `<h1>Hello</h1>`;
+- Heading anchors must stay in sync with the plugin's algorithm (lowercase, drop everything but letters, digits,
+  `-`, `_` and spaces, spaces → `-`, duplicates get `-1`, `-2`, ...). If the plugin changes, mirror it.
+- CI smoke tests (`build.yml`) assert on exact output fragments such as `<h1 id="hello">Hello</h1>`;
   update them together with any output format change.
 
 ## Differences from the IDE export
