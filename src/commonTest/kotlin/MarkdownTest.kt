@@ -327,7 +327,7 @@ class SkeletonVariablesTest {
 
     @Test
     fun noTitleBlockWithoutTitleVariable() {
-        val html = html(variables = arrayOf("author" to text("A"), "date" to text("D"), "subtitle" to text("S")))
+        val html = html(variables = arrayOf("author" to text("A"), "date" to text("D"), "subtitle" to text("S"), "abstract" to text("X")))
         assertFalse("<header" in html, html)
         assertContains(html, "  <body>\n    <h1 id=\"heading\">")
     }
@@ -404,8 +404,49 @@ class SkeletonVariablesTest {
     }
 
     @Test
+    fun titleBlockHasAbstract() {
+        assertContains(
+            html(variables = arrayOf("title" to text("T"), "abstract" to text("One *two*.\n\n- three"))),
+            """
+            |      <h1 class="title">T</h1>
+            |      <div class="abstract">
+            |        <div class="abstract-title">Abstract</div>
+            |        <p>One <em>two</em>.</p>
+            |        <ul>
+            |          <li>three</li>
+            |        </ul>
+            |      </div>
+            |    </header>
+            """.trimMargin(),
+        )
+    }
+
+    @Test
+    fun abstractTitleCanBeChanged() {
+        assertContains(
+            html(variables = arrayOf("title" to text("T"), "abstract" to text("x"), "abstract-title" to text("Summary & more"))),
+            "<div class=\"abstract-title\">Summary &amp; more</div>",
+        )
+    }
+
+    @Test
+    fun titleBlockFieldsAreInPandocsOrder() {
+        val document = html(
+            variables = arrayOf(
+                "abstract" to text("X"),
+                "date" to text("D"),
+                "author" to text("A"),
+                "subtitle" to text("S"),
+                "title" to text("T"),
+            ),
+        )
+        val classes = Regex("class=\"(title|subtitle|author|date|abstract)\"").findAll(document).map { it.groupValues[1] }.toList()
+        assertEquals(listOf("title", "subtitle", "author", "date", "abstract"), classes)
+    }
+
+    @Test
     fun nothingChangesWithoutStandalone() {
-        val all = mapOf("title" to text("T"), "subtitle" to text("S"), "author" to text("A"), "date" to text("D"), "lang" to text("en"))
+        val all = mapOf("title" to text("T"), "subtitle" to text("S"), "author" to text("A"), "date" to text("D"), "lang" to text("en"), "abstract" to text("X"))
         assertEquals("<h1 id=\"heading\">Heading</h1>\n", markdownToHtml("# Heading\n", variables = all))
     }
 }

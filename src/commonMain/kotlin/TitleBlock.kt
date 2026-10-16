@@ -7,11 +7,16 @@
  *   <p class="subtitle">…</p>
  *   <p class="author">…</p>
  *   <p class="date">…</p>
+ *   <div class="abstract">
+ *     <div class="abstract-title">Abstract</div>
+ *     …
+ *   </div>
  * </header>
  * ```
  *
- * It is only produced for a `title`, as in pandoc; `subtitle`, each of the `author`s and `date` are optional. The
- * first four are Markdown inlines.
+ * It is only produced for a `title`, as in pandoc; `subtitle`, each of the `author`s, `date` and `abstract` are
+ * optional. The first four are Markdown inlines, the `abstract` is Markdown blocks, and `abstract-title` (default
+ * "Abstract") is plain text.
  */
 internal fun titleBlock(context: TemplateContext, flavour: Flavour): String {
     val title = context["title"]?.takeIf { it.asText().isNotBlank() } ?: return ""
@@ -23,6 +28,15 @@ internal fun titleBlock(context: TemplateContext, flavour: Flavour): String {
     for (author in authors(context)) lines += """      <p class="author">${inlineHtml(author, flavour)}</p>"""
     context["date"]?.takeIf { it.asText().isNotBlank() }?.let {
         lines += """      <p class="date">${inlineHtml(it, flavour)}</p>"""
+    }
+    context["abstract"]?.takeIf { it.asText().isNotBlank() }?.let {
+        val abstractTitle = context["abstract-title"]?.asText()?.takeIf { t -> t.isNotBlank() } ?: "Abstract"
+        lines += """      <div class="abstract">"""
+        lines += """        <div class="abstract-title">${abstractTitle.escapeHtml()}</div>"""
+        // The renderer puts every block on its own line, indented below the <div>.
+        lines += render(normalizeLineEndings(it.asText()), flavour, standalone = false, baseLevel = 4)
+            .body.trim('\n')
+        lines += "      </div>"
     }
     return "\n    <header id=\"title-block-header\">\n" + lines.joinToString("\n") + "\n    </header>"
 }

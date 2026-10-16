@@ -87,8 +87,8 @@ jobs:
           [[ "$out" == *"<title>Mine</title>"* && "$out" != *"<hr"* ]]
           out=$(printf '# Hello\n' | build/bin/${{ matrix.binDir }}/releaseExecutable/${{ matrix.exe }} --standalone -V title=Variable)
           [[ "$out" == *"<title>Variable</title>"* ]]
-          out=$(printf '# Hello\n' | build/bin/${{ matrix.binDir }}/releaseExecutable/${{ matrix.exe }} --standalone -V title=T -V subtitle=Sub)
-          [[ "$out" == *'<p class="subtitle">Sub</p>'* ]]
+          out=$(printf '# Hello\n' | build/bin/${{ matrix.binDir }}/releaseExecutable/${{ matrix.exe }} --standalone -V title=T -V abstract=Abs)
+          [[ "$out" == *'<div class="abstract-title">Abstract</div>'* && "$out" == *'<p>Abs</p>'* ]]
           printf '# One\n' > one.md
           printf 'two\n' | build/bin/${{ matrix.binDir }}/releaseExecutable/${{ matrix.exe }} one.md - -o out.html
           [[ "$(cat out.html)" == *"<h1 id=\"one\">One</h1>"* && "$(cat out.html)" == *"<p>two</p>"* ]]
@@ -135,8 +135,8 @@ jobs:
           [[ "$out" == *"<title>Mine</title>"* && "$out" != *"<hr"* ]]
           out=$(printf '# Hello\n' | jetbrains-markdown-cli-linux-arm64/jetbrains-markdown-cli --standalone -V title=Variable)
           [[ "$out" == *"<title>Variable</title>"* ]]
-          out=$(printf '# Hello\n' | jetbrains-markdown-cli-linux-arm64/jetbrains-markdown-cli --standalone -V title=T -V subtitle=Sub)
-          [[ "$out" == *'<p class="subtitle">Sub</p>'* ]]
+          out=$(printf '# Hello\n' | jetbrains-markdown-cli-linux-arm64/jetbrains-markdown-cli --standalone -V title=T -V abstract=Abs)
+          [[ "$out" == *'<div class="abstract-title">Abstract</div>'* && "$out" == *'<p>Abs</p>'* ]]
           printf '# One\n' > one.md
           printf 'two\n' | jetbrains-markdown-cli-linux-arm64/jetbrains-markdown-cli one.md - -o out.html
           [[ "$(cat out.html)" == *"<h1 id=\"one\">One</h1>"* && "$(cat out.html)" == *"<p>two</p>"* ]]
