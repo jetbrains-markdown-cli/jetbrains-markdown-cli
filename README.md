@@ -9,6 +9,8 @@ echo '# Hello *world*' | jetbrains-markdown-cli
 # <body><h1>Hello <em>world</em></h1></body>
 ```
 
+Run `jetbrains-markdown-cli --help` for the available options.
+
 ## Downloads
 
 Native binaries (no JVM required) are attached to each [release](../../releases), built by GitHub Actions

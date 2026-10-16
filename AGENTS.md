@@ -26,7 +26,9 @@ Where to look in the plugin (all under `plugins/markdown/core/src/org/intellij/p
 ## Layout
 
 - `src/commonMain/kotlin/Markdown.kt`: `markdownToHtml()`.
-- `src/nativeMain/kotlin/Main.kt`: stdin → `markdownToHtml` → stdout.
+- `src/commonMain/kotlin/MarkdownCli.kt`: the command line interface ([Clikt](https://github.com/ajalt/clikt)); options are declared
+  here. Input/output are injected so it can be tested without stdin/stdout.
+- `src/nativeMain/kotlin/Main.kt`: reads stdin and runs `MarkdownCli`.
 - `src/commonTest/kotlin/MarkdownTest.kt`: tests (run on the host target).
 - `.github/workflows/build.yml`: builds all targets, smoke-tests them, publishes binaries on `v*` tags.
 
@@ -46,6 +48,9 @@ linuxArm64 is cross-compiled and smoke-tested by a separate CI job. Locally you 
 
 ## Gotchas
 
+- **Clikt 5.1.0 and the native compiler cache:** linking the *debug test* binary fails with `duplicate symbol ...
+  selfAndAncestors` (defined in both `clikt` and `clikt-mordant`). `build.gradle.kts` therefore calls
+  `disableNativeCache` for test executables only; release binaries link fine. Re-check when updating Clikt or Kotlin.
 - Input is normalized to LF before parsing (the library requires it); keep that.
 - CI smoke tests (`build.yml`) assert on exact output fragments such as `<h1>Hello</h1>`;
   update them together with any output format change.
