@@ -91,14 +91,7 @@ internal fun highlightScriptTags(context: TemplateContext): List<String> {
 
 private fun highlighting(context: TemplateContext): Highlighting? {
     if (context["highlight"]?.asBoolean("highlight") != true) return null
-    val url = context["highlight-url"]?.asText()?.trim()?.takeIf { it.isNotEmpty() } ?: DEFAULT_HIGHLIGHT_URL
-    // The directory the files are in, or null if the script is next to the page.
-    val path = withoutQuery(url)
-    val isScript = path.endsWith(".js")
-    val dir = if (isScript) path.substringBeforeLast('/', "").takeIf { '/' in path } else url.trimEnd('/')
-    fun inDir(path: String) = if (dir == null) path else "$dir/$path"
-    val script = if (isScript) url else inDir("highlight.min.js")
-
+    val location = scriptLocation(context["highlight-url"]?.asText(), DEFAULT_HIGHLIGHT_URL, "highlight.min.js")
     val explicitLight = styleName(context, "highlight-style")
     val explicitDark = styleName(context, "highlight-style-dark")
     val builtIn = styleEntries(context).lastOrNull { it in BuiltInStyles.css }
@@ -107,9 +100,9 @@ private fun highlighting(context: TemplateContext): Highlighting? {
         BuiltInStyles.DEFAULT, BuiltInStyles.INTELLIJ -> "idea" to "androidstudio"
         else -> "github" to null
     }
-    fun href(style: String) = if (isStylesheet(style)) style else inDir("styles/$style.min.css")
+    fun href(style: String) = if (isStylesheet(style)) style else location.inDir("styles/$style.min.css")
     return Highlighting(
-        script = script,
+        script = location.script,
         light = href(explicitLight ?: derivedLight),
         dark = (explicitDark ?: if (explicitLight == null) derivedDark else null)?.let(::href),
         box = when {
@@ -117,7 +110,7 @@ private fun highlighting(context: TemplateContext): Highlighting? {
             explicitLight == null && explicitDark == null -> Box.PAGE
             else -> Box.STYLE
         },
-        languages = languageNames(context).map { inDir("languages/$it.min.js") },
+        languages = languageNames(context).map { location.inDir("languages/$it.min.js") },
     )
 }
 
@@ -128,8 +121,6 @@ private fun styleName(context: TemplateContext, variable: String): String? {
 
 /** A style that is a stylesheet, not the name of one of highlight.js: a URL, or a path to a `.css` file. */
 private fun isStylesheet(style: String) = "://" in style || withoutQuery(style).endsWith(".css")
-
-private fun withoutQuery(url: String) = url.substringBefore('#').substringBefore('?')
 
 private fun languageNames(context: TemplateContext): List<String> {
     val value = context["highlight-languages"] ?: return emptyList()
