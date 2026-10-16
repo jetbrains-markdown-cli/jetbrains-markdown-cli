@@ -4,18 +4,22 @@
  * ```html
  * <header id="title-block-header">
  *   <h1 class="title">…</h1>
+ *   <p class="subtitle">…</p>
  *   <p class="author">…</p>
  *   <p class="date">…</p>
  * </header>
  * ```
  *
- * It is only produced for a `title`, as in pandoc; each of the `author`s and `date` are optional. The first three
- * are Markdown inlines.
+ * It is only produced for a `title`, as in pandoc; `subtitle`, each of the `author`s and `date` are optional. The
+ * first four are Markdown inlines.
  */
 internal fun titleBlock(context: TemplateContext, flavour: Flavour): String {
     val title = context["title"]?.takeIf { it.asText().isNotBlank() } ?: return ""
     val lines = ArrayList<String>()
     lines += """      <h1 class="title">${inlineHtml(title, flavour)}</h1>"""
+    context["subtitle"]?.takeIf { it.asText().isNotBlank() }?.let {
+        lines += """      <p class="subtitle">${inlineHtml(it, flavour)}</p>"""
+    }
     for (author in authors(context)) lines += """      <p class="author">${inlineHtml(author, flavour)}</p>"""
     context["date"]?.takeIf { it.asText().isNotBlank() }?.let {
         lines += """      <p class="date">${inlineHtml(it, flavour)}</p>"""

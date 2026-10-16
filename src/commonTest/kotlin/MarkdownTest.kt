@@ -327,7 +327,7 @@ class SkeletonVariablesTest {
 
     @Test
     fun noTitleBlockWithoutTitleVariable() {
-        val html = html(variables = arrayOf("author" to text("A"), "date" to text("D")))
+        val html = html(variables = arrayOf("author" to text("A"), "date" to text("D"), "subtitle" to text("S")))
         assertFalse("<header" in html, html)
         assertContains(html, "  <body>\n    <h1 id=\"heading\">")
     }
@@ -396,8 +396,16 @@ class SkeletonVariablesTest {
     }
 
     @Test
+    fun titleBlockHasSubtitle() {
+        assertContains(
+            html(variables = arrayOf("title" to text("T"), "subtitle" to text("A *sub* & title"), "author" to text("Ann"))),
+            "      <h1 class=\"title\">T</h1>\n      <p class=\"subtitle\">A <em>sub</em> &amp; title</p>\n      <p class=\"author\">Ann</p>",
+        )
+    }
+
+    @Test
     fun nothingChangesWithoutStandalone() {
-        val all = mapOf("title" to text("T"), "author" to text("A"), "date" to text("D"), "lang" to text("en"))
+        val all = mapOf("title" to text("T"), "subtitle" to text("S"), "author" to text("A"), "date" to text("D"), "lang" to text("en"))
         assertEquals("<h1 id=\"heading\">Heading</h1>\n", markdownToHtml("# Heading\n", variables = all))
     }
 }

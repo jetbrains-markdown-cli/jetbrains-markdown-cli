@@ -90,6 +90,7 @@ values to a list).
 | Variable | Used for |
 |----------|----------|
 | `title`  | The `<title>`, as plain text: it is Markdown, so `My *title*` becomes `My title`. Without it the text of the first heading is used. Also starts the title block in the `<body>`, which only exists with a `title` |
+| `subtitle` | `<p class="subtitle">` in the title block (Markdown inlines) |
 | `author` | `<p class="author">` in the title block, one per author, and a `<meta name="author">` in the `<head>`. A list gives several authors; a map is its `name` |
 | `date`   | `<p class="date">` in the title block (Markdown inlines) and `<meta name="dcterms.date">` in the `<head>` |
 | `lang`   | The `lang` attribute of `<html>` |
@@ -144,10 +145,9 @@ Heading `id`s, indentation of the output and the default GitHub Flavored Markdow
 
 pandoc is much bigger, this tool only converts Markdown to HTML:
 
-- **Template variables**: only the [variables listed above](#template-variables) (`title`, `author`, `date`, `lang`) are used by the
+- **Template variables**: only the [variables listed above](#template-variables) (`title`, `subtitle`, `author`, `date`, `lang`) are used by the
   `--standalone` skeleton. Other variables that pandoc's default HTML template knows (`css`, `header-includes`,
-  `include-before`, `include-after`, `toc`, `keywords`, `subtitle`, `abstract`, `math`, ...) can be set, but have no
-  effect. There is no
+  `include-before`, `include-after`, `toc`, `keywords`, `abstract`, `math`, ...) can be set, but have no effect. There is no
   `--template` option either, so the skeleton cannot be replaced.
 - **Options**: no `--toc`, `-M`/`--metadata`, `--css`, `-H`/`-B`/`-A` (includes), `--wrap`, `--highlight-style`,
   `--mathjax`/`--katex`, `--filter`/`--lua-filter`, `--citeproc`, `--file-scope`, `--resource-path` or `--self-contained`.
