@@ -3,7 +3,9 @@ import org.intellij.markdown.MarkdownTokenTypes
 import org.intellij.markdown.ast.ASTNode
 import org.intellij.markdown.ast.getTextInNode
 import org.intellij.markdown.flavours.MarkdownFlavourDescriptor
+import org.intellij.markdown.flavours.commonmark.CommonMarkFlavourDescriptor
 import org.intellij.markdown.flavours.gfm.GFMFlavourDescriptor
+import org.intellij.markdown.flavours.space.SFMFlavourDescriptor
 import org.intellij.markdown.html.GeneratingProvider
 import org.intellij.markdown.html.HtmlGenerator
 import org.intellij.markdown.parser.CancellationToken
@@ -13,14 +15,26 @@ import org.intellij.markdown.MarkdownElementTypes
 import org.intellij.markdown.html.DUMMY_ATTRIBUTES_CUSTOMIZER
 import org.intellij.markdown.html.URI
 
+/** The Markdown flavours JetBrains/markdown ships. [cliName] is the value accepted on the command line. */
+enum class Flavour(val cliName: String, internal val create: () -> MarkdownFlavourDescriptor) {
+    COMMONMARK("commonmark", { CommonMarkFlavourDescriptor() }),
+    GFM("gfm", { GFMFlavourDescriptor() }),
+    SPACE("space", { SFMFlavourDescriptor() });
+
+    companion object {
+        /** The flavour of IntelliJ's Markdown plugin (`MarkdownDefaultFlavour` is built on GFM). */
+        val DEFAULT = GFM
+    }
+}
+
 /**
- * GFM, plus the heading `id`s the IntelliJ Markdown plugin generates.
+ * The chosen flavour, plus the heading `id`s the IntelliJ Markdown plugin generates.
  *
  * Unless [standalone], the `<body>` the library wraps the document in is dropped, leaving just the content.
  */
 private class CliFlavour(
     private val standalone: Boolean,
-    private val delegate: GFMFlavourDescriptor = GFMFlavourDescriptor(),
+    private val delegate: MarkdownFlavourDescriptor,
 ) : MarkdownFlavourDescriptor by delegate {
     override fun createHtmlGeneratingProviders(linkMap: LinkMap, baseURI: URI?): Map<IElementType, GeneratingProvider> {
         val providers = HashMap(delegate.createHtmlGeneratingProviders(linkMap, baseURI))
@@ -41,18 +55,18 @@ private class CliFlavour(
  * Converts [markdown] to HTML: the document's content, or, if [standalone], a complete HTML document
  * (doctype, `<head>` and `<body>`) like `pandoc --standalone` produces.
  */
-fun markdownToHtml(markdown: String, standalone: Boolean = false): String {
+fun markdownToHtml(markdown: String, flavour: Flavour = Flavour.DEFAULT, standalone: Boolean = false): String {
     // The parser requires LF line endings, see the JetBrains/markdown README.
     val src = markdown.replace("\r\n", "\n").replace("\r", "\n")
-    val flavour = CliFlavour(standalone)
-    val tree = MarkdownParser(flavour, cancellationToken = CancellationToken.NonCancellable)
+    val descriptor = CliFlavour(standalone, flavour.create())
+    val tree = MarkdownParser(descriptor, cancellationToken = CancellationToken.NonCancellable)
         .buildMarkdownTreeFromString(src as CharSequence)
     val renderer = PrettyTagRenderer(
         HtmlGenerator.DefaultTagRenderer(DUMMY_ATTRIBUTES_CUSTOMIZER, false),
         baseLevel = if (standalone) 1 else 0,
     )
     // Every block starts with a line break; the first one is not wanted at the start of the output.
-    val body = HtmlGenerator(src, tree, flavour).generateHtml(renderer)
+    val body = HtmlGenerator(src, tree, descriptor).generateHtml(renderer)
     if (!standalone) return body.trimStart('\n').let { if (it.isEmpty()) it else it + "\n" }
     return """
         |<!DOCTYPE html>

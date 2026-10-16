@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Kotlin/Native command line tool: reads GitHub Flavored Markdown on stdin, writes HTML to stdout (a complete document with `--standalone`).
+Kotlin/Native command line tool: reads Markdown (GFM by default) on stdin, writes HTML to stdout (a complete document with `--standalone`).
 The goal is to produce HTML as close as sensible to what IntelliJ's *Markdown → HTML export* produces
 (minus IDE-only features, see [Differences from the IDE export](#differences-from-the-ide-export)).
 
@@ -28,7 +28,7 @@ Where to look in the plugin (all under `plugins/markdown/core/src/org/intellij/p
 
 ## Layout
 
-- `src/commonMain/kotlin/Markdown.kt`: `markdownToHtml()`, the flavour (GFM + anchored headings) and, with `standalone`, the document skeleton.
+- `src/commonMain/kotlin/Markdown.kt`: `markdownToHtml()`, the `Flavour` enum (commonmark/gfm/space, default = GFM, like the plugin's `MarkdownDefaultFlavour`), the flavour wrapper adding anchored headings and, with `standalone`, the document skeleton.
 - `src/commonMain/kotlin/HeadingAnchors.kt`: port of the plugin's heading anchor logic.
 - `src/commonMain/kotlin/PrettyTagRenderer.kt`: indents block tags; leaves `<pre>` content untouched.
 - `src/commonMain/kotlin/MarkdownCli.kt`: the command line interface ([Clikt](https://github.com/ajalt/clikt)); options are declared

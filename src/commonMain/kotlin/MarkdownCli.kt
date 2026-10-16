@@ -1,7 +1,9 @@
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.Context
+import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
+import com.github.ajalt.clikt.parameters.types.enum
 
 /**
  * Command line interface: reads Markdown via [readInput] and passes the HTML to [write].
@@ -17,7 +19,11 @@ class MarkdownCli(
     private val standalone by option("-s", "--standalone", help = "Produce a complete HTML document instead of just its content.")
         .flag()
 
+    private val flavour by option("-f", "--flavour", help = "Markdown flavour to parse the input with (default: ${Flavour.DEFAULT.cliName}).")
+        .enum<Flavour> { it.cliName }
+        .default(Flavour.DEFAULT)
+
     override fun run() {
-        write(markdownToHtml(readInput(), standalone))
+        write(markdownToHtml(readInput(), flavour, standalone))
     }
 }

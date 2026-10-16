@@ -2,7 +2,7 @@
 
 Command line wrapper around [JetBrains/markdown](https://github.com/JetBrains/markdown).
 
-Reads Markdown (GitHub Flavored Markdown) from stdin and writes HTML to stdout:
+Reads Markdown from stdin and writes HTML to stdout:
 
 ```sh
 echo '# Hello *world*' | jetbrains-markdown-cli
@@ -29,7 +29,17 @@ echo '# Hello *world*' | jetbrains-markdown-cli --standalone
 
 The `<title>` is the text of the first heading.
 
-Run `jetbrains-markdown-cli --help` for the available options.
+## Options
+
+| Option                | Description |
+|-----------------------|-------------|
+| `-s`, `--standalone`  | Produce a complete HTML document (doctype, `<head>`, `<body>`) instead of just the content |
+| `-f`, `--flavour=...` | Markdown flavour: `gfm` (default, GitHub Flavored Markdown like IntelliJ's Markdown plugin), `commonmark` (plain CommonMark) or `space` (JetBrains Space) |
+| `-h`, `--help`        | Show the help and exit |
+
+```sh
+printf '| a |\n|---|\n| 1 |\n' | jetbrains-markdown-cli --flavour commonmark   # no <table>
+```
 
 ## Downloads
 

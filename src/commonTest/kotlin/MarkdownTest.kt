@@ -1,4 +1,5 @@
 import com.github.ajalt.clikt.core.parse
+import com.github.ajalt.clikt.core.BadParameterValue
 import com.github.ajalt.clikt.core.UsageError
 import kotlin.test.Test
 import kotlin.test.assertContains
@@ -19,6 +20,33 @@ class MarkdownTest {
     fun rendersGfmTable() {
         val html = markdownToHtml("| a | b |\n|---|---|\n| 1 | 2 |\n")
         assertContains(html, "<table>")
+    }
+
+    @Test
+    fun flavoursDifferInGfmExtensions() {
+        val src = "~~gone~~\n\n| a |\n|---|\n| 1 |\n"
+        val commonMark = markdownToHtml(src, Flavour.COMMONMARK)
+        assertFalse("<table>" in commonMark, commonMark)
+        assertFalse("user-del" in commonMark, commonMark)
+        assertContains(markdownToHtml(src, Flavour.GFM), "<table>")
+        assertContains(markdownToHtml(src, Flavour.GFM), "<span class=\"user-del\">gone</span>")
+        assertContains(markdownToHtml(src, Flavour.SPACE), "<table>")
+    }
+
+    @Test
+    fun everyFlavourGeneratesHeadingIds() {
+        for (flavour in Flavour.entries) {
+            assertContains(markdownToHtml("# Hello\n\nWorld\n-----\n", flavour), "<h1 id=\"hello\">Hello</h1>")
+            assertContains(markdownToHtml("# Hello\n\nWorld\n-----\n", flavour), "<h2 id=\"world\">World</h2>")
+        }
+    }
+
+    @Test
+    fun everyFlavourSupportsStandalone() {
+        for (flavour in Flavour.entries) {
+            assertFalse("<body>" in markdownToHtml("# Hello\n", flavour), flavour.name)
+            assertContains(markdownToHtml("# Hello\n", flavour, standalone = true), "  <body>\n    <h1 id=\"hello\">")
+        }
     }
 
     @Test
@@ -104,6 +132,25 @@ class MarkdownCliTest {
             assertContains(html, "<h1 id=\"title\">Title</h1>")
         }
         assertEquals(run("-s"), markdownToHtml("# Title\n", standalone = true))
+    }
+
+    @Test
+    fun defaultsToGfm() {
+        val table = "| a | b |\n|---|---|\n| 1 | 2 |\n"
+        assertContains(run(input = table), "<table>")
+        assertEquals(run("--flavour", "gfm", input = table), run(input = table))
+    }
+
+    @Test
+    fun flavourOptionSelectsFlavour() {
+        val table = "| a | b |\n|---|---|\n| 1 | 2 |\n"
+        assertFalse("<table>" in run("--flavour", "commonmark", input = table))
+        assertContains(run("-f", "space", input = table), "<table>")
+    }
+
+    @Test
+    fun rejectsUnknownFlavour() {
+        assertFailsWith<BadParameterValue> { run("--flavour", "bogus") }
     }
 
     @Test
