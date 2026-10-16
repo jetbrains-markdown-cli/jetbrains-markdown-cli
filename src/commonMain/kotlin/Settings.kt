@@ -11,14 +11,20 @@ internal class Settings(
     /** Metadata that the document's own metadata cannot override, like pandoc's `metadata:` defaults and `-M`. */
     val metadata: TemplateContext = emptyMap(),
     val metadataFiles: List<String> = emptyList(),
+    /** The Markdown files to read, `-` being stdin. Empty means stdin as well. */
+    val inputFiles: List<String> = emptyList(),
+    /** The file to write, `-` being stdout. */
+    val outputFile: String? = null,
 ) {
-    /** These settings, overridden by [later]: single values and top-level fields are replaced, files are appended. */
+    /** These settings, overridden by [later]: single values and top-level fields are replaced, metadata files are appended, input files are replaced. */
     fun then(later: Settings) = Settings(
         standalone = later.standalone ?: standalone,
         flavour = later.flavour ?: flavour,
         variables = variables + later.variables,
         metadata = metadata + later.metadata,
         metadataFiles = metadataFiles + later.metadataFiles,
+        inputFiles = later.inputFiles.ifEmpty { inputFiles },
+        outputFile = later.outputFile ?: outputFile,
     )
 }
 
@@ -37,10 +43,16 @@ internal fun parseSettings(yaml: String, ignored: (key: String) -> Unit = {}): S
                 "variables" -> Settings(variables = (value as? TemplateValue.Fields)?.values ?: invalid(key, "a mapping"))
                 "metadata" -> Settings(metadata = (value as? TemplateValue.Fields)?.values ?: invalid(key, "a mapping"))
                 "metadata-file", "metadata-files" -> Settings(metadataFiles = value.asFileList(key))
+                "input-file", "input-files" -> Settings(inputFiles = value.asFileList(key))
+                // Like in pandoc, an empty `output-file` means stdout.
+                "output-file" -> Settings(outputFile = (value as? TemplateValue.Text)?.value?.ifEmpty { STDIO } ?: invalid(key, "a file name"))
                 else -> Settings().also { ignored(key) }
             }
         )
     }
+
+/** The file name that stands for stdin as an input and stdout as an output, like in pandoc's `-o -`. */
+internal const val STDIO = "-"
 
 private fun invalid(key: String, expected: String): Nothing =
     throw IllegalArgumentException("`$key` must be $expected")

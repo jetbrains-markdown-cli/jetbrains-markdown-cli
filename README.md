@@ -2,11 +2,20 @@
 
 Command line wrapper around [JetBrains/markdown](https://github.com/JetBrains/markdown).
 
-Reads Markdown from stdin and writes HTML to stdout:
+Converts Markdown files to HTML, with the input and output handled like in [pandoc](https://pandoc.org/MANUAL.html#using-pandoc):
+
+```sh
+jetbrains-markdown-cli -o hello.html hello.md   # file to file
+jetbrains-markdown-cli chap1.md chap2.md        # several files, concatenated with blank lines between them; HTML on stdout
+```
+
+Without input files Markdown is read from stdin, and without `-o` the HTML is written to stdout, which needs no mounts
+in a container. The file name `-` also stands for stdin (as an input) and stdout (as the `-o` argument):
 
 ```sh
 echo '# Hello *world*' | jetbrains-markdown-cli
 # <h1 id="hello-world">Hello <em>world</em></h1>
+echo '# Hello *world*' | jetbrains-markdown-cli intro.md - -o -   # intro.md, then stdin, to stdout
 ```
 
 The output is indented, and headings get `id`s computed like in IntelliJ's Markdown preview.
@@ -33,10 +42,12 @@ The `<title>` is the `title` [template variable](#template-variables), or else t
 
 | Option                         | Description |
 |--------------------------------|-------------|
+| `INPUT...`                     | The Markdown files to convert. They are concatenated, with a blank line between them, before parsing (so a YAML metadata file can be one of them, like in pandoc). Stdin if there are none; `-` is stdin |
+| `-o`, `--output=FILE`          | Write the HTML to `FILE` (replacing it) instead of stdout; `-` is stdout. Nothing is written if the conversion fails |
 | `-s`, `--standalone`           | Produce a complete HTML document (doctype, `<head>`, `<body>`) instead of just the content |
 | `-f`, `--flavour=...`          | Markdown flavour: `gfm` (default, GitHub Flavored Markdown like IntelliJ's Markdown plugin), `commonmark` (plain CommonMark) or `space` (JetBrains Space) |
 | `-V`, `--variable=KEY[=VAL]`   | Set a template variable like `pandoc --variable`: without a value it is `true`, repeating a key makes a list. Can be repeated |
-| `-d`, `--defaults=FILE`        | Read options from a YAML defaults file like `pandoc --defaults` (`standalone`, `flavour`, `variables`, `metadata`, `metadata-files`; other keys are ignored with a warning). `FILE.yaml` is found as `FILE`. Can be repeated, later files override earlier ones, the command line overrides them all |
+| `-d`, `--defaults=FILE`        | Read options from a YAML defaults file like `pandoc --defaults` (`input-files`, `output-file`, `standalone`, `flavour`, `variables`, `metadata`, `metadata-files`; other keys are ignored with a warning). `FILE.yaml` is found as `FILE`. Can be repeated, later files override earlier ones, the command line overrides them all (input files on the command line replace those of defaults files, like in pandoc) |
 | `--metadata-file=FILE`         | Read metadata (a YAML mapping) from `FILE`. Can be repeated, later files override earlier ones |
 | `-h`, `--help`                 | Show the help and exit |
 
@@ -73,7 +84,7 @@ values to a list).
 |----------|----------|
 | `title`  | The `<title>`, as plain text: it is Markdown, so `My *title*` becomes `My title`. Without it the text of the first heading is used |
 
-Not (yet) like pandoc: `-M`/`--metadata`, `pagetitle`, the title block in the `<body>`, and finding defaults files in
+Not (yet) like pandoc: `--file-scope`, the `sourcefile`/`outputfile` variables, `-M`/`--metadata`, `pagetitle`, the title block in the `<body>`, and finding defaults files in
 the user data directory. Variables are escaped when inserted into the HTML, while pandoc inserts `--variable` values as they are.
 
 ## Downloads

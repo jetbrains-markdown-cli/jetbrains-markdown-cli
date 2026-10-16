@@ -1,6 +1,8 @@
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.CliktError
 import com.github.ajalt.clikt.core.Context
+import com.github.ajalt.clikt.parameters.arguments.argument
+import com.github.ajalt.clikt.parameters.arguments.multiple
 import com.github.ajalt.clikt.parameters.options.convert
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.flag
@@ -9,17 +11,27 @@ import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.enum
 
 /**
- * Command line interface: reads Markdown via [readInput] and passes the HTML to [write].
+ * Command line interface: reads the Markdown input files (or stdin) and writes the HTML to the output file (or stdout),
+ * like pandoc: no input files means stdin, no `-o` means stdout, and the file name `-` stands for stdin or stdout.
  *
- * I/O is injected (a [readFile] that returns null for a file it cannot read) so that the command stays in
- * `commonMain` and can be tested without touching stdin/stdout or the file system.
+ * I/O is injected (a [readFile] that returns null for a file it cannot read, a [writeFile] that returns false for a
+ * file it cannot write) so that the command stays in `commonMain` and can be tested without touching
+ * stdin/stdout or the file system.
  */
 class MarkdownCli(
-    private val readInput: () -> String,
-    private val write: (String) -> Unit = { print(it) },
+    private val readStdin: () -> String,
+    private val writeStdout: (String) -> Unit = { print(it) },
     private val readFile: (String) -> String? = { null },
+    private val writeFile: (path: String, text: String) -> Boolean = { _, _ -> false },
 ) : CliktCommand(name = "jetbrains-markdown-cli") {
-    override fun help(context: Context) = "Convert Markdown from stdin to HTML on stdout."
+    override fun help(context: Context) =
+        "Convert Markdown files to HTML. Without input files, or for the file name `-`, Markdown is read from stdin; " +
+            "without `-o`, or for `-o -`, HTML is written to stdout."
+
+    private val inputFiles by argument("INPUT", help = "Markdown files to convert, concatenated with blank lines between them. `-` is stdin.")
+        .multiple()
+
+    private val outputFile by option("-o", "--output", metavar = "FILE", help = "Write the HTML to FILE instead of stdout. `-` is stdout.")
 
     private val standalone by option("-s", "--standalone", help = "Produce a complete HTML document instead of just its content.")
         .flag()
@@ -43,12 +55,14 @@ class MarkdownCli(
             flavour = flavour,
             variables = variablesOf(variables),
             metadataFiles = metadataFiles,
+            inputFiles = inputFiles,
+            outputFile = outputFile,
         )
         val settings = defaultsFiles.map(::loadDefaults).fold(Settings(), Settings::then).then(commandLine)
         val metadata = mergeMetadata(settings.metadataFiles.map(::loadMetadataFile))
         val html = try {
             markdownToHtml(
-                readInput(),
+                readInputs(settings.inputFiles),
                 settings.flavour ?: Flavour.DEFAULT,
                 settings.standalone ?: false,
                 settings.variables,
@@ -58,8 +72,17 @@ class MarkdownCli(
         } catch (e: InvalidMetadataException) {
             throw CliktError("Error in the input: ${e.message}")
         }
-        write(html)
+        val output = settings.outputFile ?: STDIO
+        if (output == STDIO) writeStdout(html)
+        else if (!writeFile(output, html)) throw CliktError("Could not write output file $output")
     }
+
+    /** The text of [files] (stdin if there are none), joined like pandoc does: with a blank line between them. */
+    private fun readInputs(files: List<String>): String =
+        files.ifEmpty { listOf(STDIO) }.joinToString("\n") { path ->
+            val text = if (path == STDIO) readStdin() else readFile(path) ?: throw CliktError("Could not read input file $path")
+            if (text.isEmpty() || text.endsWith("\n")) text else text + "\n"
+        }
 
     private fun loadDefaults(path: String): Settings {
         // Like pandoc, `-d name` also finds `name.yaml`.

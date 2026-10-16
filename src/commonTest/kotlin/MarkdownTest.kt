@@ -478,8 +478,108 @@ class MarkdownCliTest {
         files: Map<String, String> = emptyMap(),
     ): String {
         var output = ""
-        MarkdownCli(readInput = { input }, write = { output += it }, readFile = { files[it] }).parse(args.toList())
+        MarkdownCli(readStdin = { input }, writeStdout = { output += it }, readFile = { files[it] }).parse(args.toList())
         return output
+    }
+
+    /** Runs the command with a file system of [files] and returns what it wrote to stdout and to files. */
+    private fun runWithFiles(
+        vararg args: String,
+        input: String = "# Stdin\n",
+        files: Map<String, String> = emptyMap(),
+    ): Pair<String, Map<String, String>> {
+        var stdout = ""
+        val written = mutableMapOf<String, String>()
+        MarkdownCli(
+            readStdin = { input },
+            writeStdout = { stdout += it },
+            readFile = { files[it] },
+            writeFile = { path, text -> if (path.startsWith("/nowhere/")) false else { written[path] = text; true } },
+        ).parse(args.toList())
+        return stdout to written
+    }
+
+    @Test
+    fun readsInputFilesInsteadOfStdin() {
+        val (stdout, written) = runWithFiles("a.md", files = mapOf("a.md" to "# A\n"))
+        assertEquals("<h1 id=\"a\">A</h1>\n", stdout)
+        assertEquals(emptyMap(), written)
+    }
+
+    @Test
+    fun dashIsStdin() {
+        val files = mapOf("a.md" to "# A\n")
+        assertEquals("<h1 id=\"stdin\">Stdin</h1>\n", runWithFiles("-", files = files).first)
+        val html = runWithFiles("a.md", "-", files = files).first
+        assertContains(html, "<h1 id=\"a\">A</h1>")
+        assertContains(html, "<h1 id=\"stdin\">Stdin</h1>")
+    }
+
+    @Test
+    fun concatenatesInputFilesWithBlankLines() {
+        // Without the blank line, the files would be one paragraph.
+        val files = mapOf("a.md" to "first", "b.md" to "second\n", "c.md" to "third")
+        assertEquals(
+            "<p>first</p>\n<p>second</p>\n<p>third</p>\n",
+            runWithFiles("a.md", "b.md", "c.md", files = files).first,
+        )
+    }
+
+    @Test
+    fun metadataFileMayBeAnInputFile() {
+        val files = mapOf("book.md" to "# Hello\n", "meta.yaml" to "---\ntitle: Mine\n---\n")
+        val html = runWithFiles("-s", "book.md", "meta.yaml", files = files).first
+        assertContains(html, "<title>Mine</title>")
+        assertFalse("<hr" in html, html)
+    }
+
+    @Test
+    fun outputOptionWritesFileInsteadOfStdout() {
+        for (option in listOf("-o", "--output")) {
+            val (stdout, written) = runWithFiles(option, "out.html", "a.md", files = mapOf("a.md" to "# A\n"))
+            assertEquals("", stdout)
+            assertEquals(mapOf("out.html" to "<h1 id=\"a\">A</h1>\n"), written)
+        }
+        assertEquals(mapOf("out.html" to "<h1 id=\"stdin\">Stdin</h1>\n"), runWithFiles("-o", "out.html").second)
+    }
+
+    @Test
+    fun outputDashIsStdout() {
+        val (stdout, written) = runWithFiles("-o", "-")
+        assertEquals("<h1 id=\"stdin\">Stdin</h1>\n", stdout)
+        assertEquals(emptyMap(), written)
+    }
+
+    @Test
+    fun rejectsMissingInputFile() {
+        assertFailsWith<CliktError> { runWithFiles("missing.md") }
+    }
+
+    @Test
+    fun rejectsUnwritableOutputFile() {
+        assertFailsWith<CliktError> { runWithFiles("-o", "/nowhere/out.html") }
+    }
+
+    @Test
+    fun writesNoOutputFileIfTheInputIsInvalid() {
+        val written = mutableMapOf<String, String>()
+        val cli = MarkdownCli(readStdin = { "---\ntitle: [\n---\n" }, writeFile = { path, text -> written[path] = text; true })
+        assertFailsWith<CliktError> { cli.parse(listOf("-o", "out.html")) }
+        assertEquals(emptyMap(), written)
+    }
+
+    @Test
+    fun defaultsFileSetsInputAndOutputFiles() {
+        val files = mapOf(
+            "a.md" to "# A\n", "b.md" to "# B\n",
+            "d.yaml" to "input-files: [a.md]\noutput-file: out.html\n",
+            "empty.yaml" to "output-file:\n",
+        )
+        assertEquals(mapOf("out.html" to "<h1 id=\"a\">A</h1>\n"), runWithFiles("-d", "d.yaml", files = files).second)
+        // The command line replaces the input files and overrides the output file.
+        val (stdout, written) = runWithFiles("-d", "d.yaml", "-d", "empty.yaml", "b.md", files = files)
+        assertEquals("<h1 id=\"b\">B</h1>\n", stdout)
+        assertEquals(emptyMap(), written)
     }
 
     @Test
