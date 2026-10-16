@@ -173,9 +173,11 @@ The `css` variable is a list like in pandoc's template, but besides the URLs of 
 | `default`  | The style used without `css`; the same as `intellij` for now |
 | `intellij` | The style of the IntelliJ Markdown preview: its `default.css` with the colours of the IDE's light and dark themes (picked by the browser's `prefers-color-scheme`, not by an IDE setting) |
 | `github`   | GitHub's look, based on [github-markdown-css](https://github.com/sindresorhus/github-markdown-css), light and dark as well |
+| `pandoc`   | The look of the page `pandoc --standalone` makes without a stylesheet: pandoc's default CSS (3.7), light only |
 
 ```sh
 printf '# Hello\n' | jetbrains-markdown-cli -s -V css=github            # the GitHub style
+printf '# Hello\n' | jetbrains-markdown-cli -s -V css=pandoc            # the style of pandoc's own pages
 printf '# Hello\n' | jetbrains-markdown-cli -s -V css=none              # no style
 printf '# Hello\n' | jetbrains-markdown-cli -s -V css=github -V css=my.css   # GitHub's, then yours, which can override it
 printf '# Hello\n' | jetbrains-markdown-cli -s -V css=none -V css=my.css     # only yours
@@ -215,6 +217,7 @@ The default style follows the [style of the page](#styles), the last built-in on
 |-------|-------|------|
 | `default`, `intellij` | `idea` | `androidstudio` |
 | `github` | `github` | `github-dark` |
+| `pandoc` | `github` | none, as that page is not dark |
 | `none` or only your own stylesheets | `github` | none, as those pages are not dark |
 
 Since the light and dark styles are each linked with a `prefers-color-scheme` media query, they follow the browser, like
@@ -258,8 +261,9 @@ jetbrains-markdown-cli -s -V mermaid -V mermaid-url=vendor/mermaid README.md   #
 | `mermaid-url` | Where Mermaid comes from, by default `https://cdn.jsdelivr.net/npm/mermaid/dist` (the latest release of the official package; add `@11` or an exact version to the package name to pin it). Either a directory with `mermaid.min.js` (also what cdnjs and unpkg have, or a local copy), or the URL of the script, whatever it is called. It has to be the classic script (`mermaid.min.js`), not the ES module |
 
 Without `mermaid-theme`, the diagrams use `default` on a light page, and `dark` when the browser prefers a dark colour
-scheme and a built-in style of `css` is used (those are light and dark, see [Styles](#styles)). With `css=none` or only
-your own stylesheets the page is not known to be dark, so there is just `default`. Mermaid puts the theme into the SVG,
+scheme and one of the built-in styles `default`, `intellij` or `github` of `css` is used (those are light and dark, see
+[Styles](#styles)). With `css=pandoc`, `css=none` or only your own stylesheets the page is not known to be dark, so there
+is just `default`. Mermaid puts the theme into the SVG,
 so the diagrams are drawn again when the browser switches.
 
 The diagrams are `<div class="mermaid">`, not `<pre>`, so the box of code blocks does not apply to them. The

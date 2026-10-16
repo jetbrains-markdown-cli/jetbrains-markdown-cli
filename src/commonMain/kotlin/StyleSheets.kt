@@ -2,7 +2,7 @@
  * The built-in styles (see [BuiltInStyles]). They are compile-time constants because there is no resource loading
  * in Kotlin/Native, and only style what this tool generates.
  *
- * Both are adapted from github-markdown-css, which is licensed as follows:
+ * The IntelliJ and GitHub styles are adapted from github-markdown-css, which is licensed as follows:
  *
  * The MIT License (MIT)
  *
@@ -27,7 +27,7 @@
  * THE SOFTWARE.
  */
 
-/** The title block ([titleBlock]) is pandoc's markup, not the IDE's or GitHub's, so both styles share its rules. */
+/** The title block ([titleBlock]) is pandoc's markup, not the IDE's or GitHub's, so the IntelliJ and GitHub styles share its rules (the pandoc style has pandoc's own). */
 private const val TITLE_BLOCK_CSS = """
 header#title-block-header {
   margin-bottom: 2em;
@@ -620,3 +620,220 @@ span.user-del {
   text-decoration: line-through;
 }
 """ + TITLE_BLOCK_CSS
+
+/**
+ * The style of pandoc's default HTML template (`templates/styles.html`, as pandoc 3.7 inserts it into a standalone page
+ * without `css`), with its defaults for the template variables that can change it (`fontcolor`, `maxwidth`, ...) filled in,
+ * and the rules for the markup that pandoc has no counterpart for in its own template: task lists and strikethrough of
+ * the GFM flavour. It is light only, like pandoc's page; its rules for the title block and the table of contents are
+ * pandoc's, too, as that markup is pandoc's.
+ */
+internal const val PANDOC_CSS = """
+/* Based on the default style of pandoc's HTML template */
+html {
+  color: #1a1a1a;
+  background-color: #fdfdfd;
+}
+
+body {
+  margin: 0 auto;
+  max-width: 36em;
+  padding-left: 50px;
+  padding-right: 50px;
+  padding-top: 50px;
+  padding-bottom: 50px;
+  hyphens: auto;
+  overflow-wrap: break-word;
+  text-rendering: optimizeLegibility;
+  font-kerning: normal;
+}
+
+@media (max-width: 600px) {
+  body {
+    font-size: 0.9em;
+    padding: 12px;
+  }
+
+  h1 {
+    font-size: 1.8em;
+  }
+}
+
+@media print {
+  html {
+    background-color: white;
+  }
+
+  body {
+    background-color: transparent;
+    color: black;
+    font-size: 12pt;
+  }
+
+  p, h2, h3 {
+    orphans: 3;
+    widows: 3;
+  }
+
+  h2, h3, h4 {
+    page-break-after: avoid;
+  }
+}
+
+p {
+  margin: 1em 0;
+}
+
+a {
+  color: #1a1a1a;
+}
+
+a:visited {
+  color: #1a1a1a;
+}
+
+img {
+  max-width: 100%;
+}
+
+svg {
+  height: auto;
+  max-width: 100%;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin-top: 1.4em;
+}
+
+h5, h6 {
+  font-size: 1em;
+  font-style: italic;
+}
+
+h6 {
+  font-weight: normal;
+}
+
+ol, ul {
+  padding-left: 1.7em;
+  margin-top: 1em;
+}
+
+li > ol, li > ul {
+  margin-top: 0;
+}
+
+blockquote {
+  margin: 1em 0 1em 1.7em;
+  padding-left: 1em;
+  border-left: 2px solid #e6e6e6;
+  color: #606060;
+}
+
+div.abstract {
+  margin: 2em 2em 2em 2em;
+  text-align: left;
+  font-size: 85%;
+}
+
+div.abstract-title {
+  font-weight: bold;
+  text-align: center;
+  padding: 0;
+  margin-bottom: 0.5em;
+}
+
+code {
+  font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+  font-size: 85%;
+  margin: 0;
+  hyphens: manual;
+}
+
+pre {
+  margin: 1em 0;
+  overflow: auto;
+}
+
+pre code {
+  padding: 0;
+  overflow: visible;
+  overflow-wrap: normal;
+}
+
+hr {
+  border: none;
+  border-top: 1px solid #1a1a1a;
+  height: 1px;
+  margin: 1em 0;
+}
+
+table {
+  margin: 1em 0;
+  border-collapse: collapse;
+  width: 100%;
+  overflow-x: auto;
+  display: block;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+table caption {
+  margin-bottom: 0.75em;
+}
+
+tbody {
+  margin-top: 0.5em;
+  border-top: 1px solid #1a1a1a;
+  border-bottom: 1px solid #1a1a1a;
+}
+
+th {
+  border-top: 1px solid #1a1a1a;
+  padding: 0.25em 0.5em 0.25em 0.5em;
+}
+
+td {
+  padding: 0.125em 0.5em 0.25em 0.5em;
+}
+
+header {
+  margin-bottom: 4em;
+  text-align: center;
+}
+
+#TOC li {
+  list-style: none;
+}
+
+#TOC ul {
+  padding-left: 1.3em;
+}
+
+#TOC > ul {
+  padding-left: 0;
+}
+
+#TOC a:not(:hover) {
+  text-decoration: none;
+}
+
+code {
+  white-space: pre-wrap;
+}
+
+/* pandoc's rules for task lists (ul.task-list), for the markup of the GFM flavour */
+.task-list-item {
+  list-style: none;
+}
+
+.task-list-item-checkbox {
+  font-size: inherit;
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1.6em;
+  vertical-align: middle;
+}
+
+span.user-del {
+  text-decoration: line-through;
+}
+"""

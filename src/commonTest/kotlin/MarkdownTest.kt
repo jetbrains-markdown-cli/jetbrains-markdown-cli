@@ -7,6 +7,7 @@ import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 class MarkdownTest {
@@ -497,16 +498,36 @@ class StyleVariableTest {
     }
 
     @Test
+    fun pandocStyleIsPandocsDefault() {
+        val document = html(text("pandoc"))
+        val pandoc = style(document)
+        assertContains(pandoc, "max-width: 36em;")
+        assertContains(pandoc, "background-color: #fdfdfd;")
+        assertContains(pandoc, "#TOC > ul {")
+        assertContains(pandoc, "header {\n        margin-bottom: 4em;\n        text-align: center;\n      }")
+        assertFalse("JetBrains Mono" in pandoc)
+        assertFalse("github-markdown-css" in pandoc)
+        // Pandoc's page is light only.
+        assertFalse("prefers-color-scheme" in pandoc)
+        assertFalse("color-scheme" in pandoc)
+        assertFalse("<link" in document)
+        assertNotEquals(style(html(text("github"))), pandoc)
+        assertNotEquals(style(html(text("intellij"))), pandoc)
+    }
+
+    @Test
     fun builtInStylesAreSelfContained() {
-        for (alias in listOf("default", "intellij", "github")) {
+        for (alias in listOf("default", "intellij", "github", "pandoc")) {
             val css = style(html(text(alias)))
             assertTrue(css.isNotBlank(), alias)
             assertEquals(css.count { it == '{' }, css.count { it == '}' }, alias)
             assertFalse("<link" in html(text(alias)), alias)
             // The IDE's classes for markup this tool generates.
-            for (selector in listOf(".task-list-item", "span.user-del", "pre code", "header#title-block-header")) {
+            for (selector in listOf(".task-list-item", "span.user-del", "pre code")) {
                 assertContains(css, selector, message = alias)
             }
+            // The title block has the rules of this tool for the IntelliJ and GitHub styles, pandoc's own for pandoc's.
+            assertContains(css, if (alias == "pandoc") "header {" else "header#title-block-header", message = alias)
         }
     }
 
@@ -634,6 +655,10 @@ class HighlightVariableTest {
         // The last built-in style wins the cascade, so it decides.
         assertEquals(listOf("github", "github-dark"), styles("css" to items("intellij", "github")))
         assertEquals(listOf("idea", "androidstudio"), styles("css" to items("github", "intellij", "none")))
+        // Pandoc's page is light only, so there is no dark style.
+        assertEquals(listOf("github"), styles("css" to text("pandoc")))
+        assertEquals(listOf("github"), styles("css" to items("github", "pandoc")))
+        assertEquals(listOf("github", "github-dark"), styles("css" to items("pandoc", "github")))
     }
 
     @Test
@@ -723,7 +748,7 @@ class HighlightVariableTest {
 
     @Test
     fun derivedStylesTakeTheBoxOfThePre() {
-        for (alias in listOf("default", "intellij", "github")) {
+        for (alias in listOf("default", "intellij", "github", "pandoc")) {
             val head = html(on, "css" to text(alias)).substringBefore("</head>")
             val rule = head.substringAfter("pre code.hljs {").substringBefore("}")
             assertContains(rule, "background: transparent;", message = alias)
@@ -732,7 +757,7 @@ class HighlightVariableTest {
             assertFalse("pre:has" in head, alias)
             // Before the style of the page, so that is what overrides them; after the style of highlight.js.
             assertTrue(head.indexOf(".min.css") < head.indexOf("pre code.hljs {"), alias)
-            assertTrue(head.indexOf("pre code.hljs {") < head.indexOf("--foreground"), alias)
+            assertTrue(head.indexOf("pre code.hljs {") < head.indexOf(if (alias == "pandoc") "max-width: 36em" else "--foreground"), alias)
         }
     }
 
@@ -835,6 +860,10 @@ class MermaidVariableTest {
         assertEquals(light, themes(html(on, "css" to text("github"))))
         assertEquals(light, themes(html(on, "css" to items("my.css", "github"))))
         assertEquals(light, themes(html(on, "css" to items("github", "none"))))
+        // Pandoc's page is light only: the last built-in style decides, like the cascade.
+        assertEquals(listOf("\"default\"", "null"), themes(html(on, "css" to text("pandoc"))))
+        assertEquals(listOf("\"default\"", "null"), themes(html(on, "css" to items("github", "pandoc"))))
+        assertEquals(light, themes(html(on, "css" to items("pandoc", "github"))))
     }
 
     @Test

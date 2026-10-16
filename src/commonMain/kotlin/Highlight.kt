@@ -65,7 +65,7 @@ private class Highlighting(
  *   built-in style that is used and also if there is none (`none`).
  * - `highlight-style-dark`: the same for `prefers-color-scheme: dark`. By default `androidstudio` for `idea` and
  *   `github-dark` for `github`, as long as `highlight-style` is not set (then it is used for both), and none
- *   without a built-in style because that page is not dark.
+ *   for the `pandoc` style or without a built-in style because those pages are not dark.
  * - `highlight-languages`: the languages to load besides those of the script, from `languages/NAME.min.js`.
  *
  * @throws InvalidVariableException for a value of `highlight` that is not a boolean or a name that is not one
@@ -98,6 +98,7 @@ private fun highlighting(context: TemplateContext): Highlighting? {
     val (derivedLight, derivedDark) = when (builtIn) {
         BuiltInStyles.GITHUB -> "github" to "github-dark"
         BuiltInStyles.DEFAULT, BuiltInStyles.INTELLIJ -> "idea" to "androidstudio"
+        // The light-only `pandoc` style, or none at all.
         else -> "github" to null
     }
     fun href(style: String) = if (isStylesheet(style)) style else location.inDir("styles/$style.min.css")
