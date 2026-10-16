@@ -91,18 +91,20 @@ values to a list).
 |----------|----------|
 | `title`  | The `<title>`, as plain text: it is Markdown, so `My *title*` becomes `My title`. Without it the text of the first heading is used. Also starts the title block in the `<body>`, which only exists with a `title` |
 | `author` | `<p class="author">` in the title block, one per author, and a `<meta name="author">` in the `<head>`. A list gives several authors; a map is its `name` |
+| `date`   | `<p class="date">` in the title block (Markdown inlines) and `<meta name="dcterms.date">` in the `<head>` |
 | `lang`   | The `lang` attribute of `<html>` |
 
 The title block is like the one of pandoc's HTML template:
 
 ```sh
-printf -- '---\ntitle: My document\nauthor: [Ann, Bob]\n---\n' | jetbrains-markdown-cli --standalone -V lang=en
+printf -- '---\ntitle: My document\nauthor: [Ann, Bob]\ndate: 2026-01-02\n---\n' | jetbrains-markdown-cli --standalone -V lang=en
 # <!DOCTYPE html>
 # <html lang="en">
 #   <head>
 #     <meta charset="UTF-8">
 #     <meta name="author" content="Ann">
 #     <meta name="author" content="Bob">
+#     <meta name="dcterms.date" content="2026-01-02">
 #     <title>My document</title>
 #   </head>
 #   <body>
@@ -110,6 +112,7 @@ printf -- '---\ntitle: My document\nauthor: [Ann, Bob]\n---\n' | jetbrains-markd
 #       <h1 class="title">My document</h1>
 #       <p class="author">Ann</p>
 #       <p class="author">Bob</p>
+#       <p class="date">2026-01-02</p>
 #     </header>
 #   </body>
 # </html>
@@ -141,8 +144,8 @@ Heading `id`s, indentation of the output and the default GitHub Flavored Markdow
 
 pandoc is much bigger, this tool only converts Markdown to HTML:
 
-- **Template variables**: only the [variables listed above](#template-variables) (`title`, `author`, `lang`) are used by the `--standalone`
-  skeleton. Other variables that pandoc's default HTML template knows (`date`, `css`, `header-includes`,
+- **Template variables**: only the [variables listed above](#template-variables) (`title`, `author`, `date`, `lang`) are used by the
+  `--standalone` skeleton. Other variables that pandoc's default HTML template knows (`css`, `header-includes`,
   `include-before`, `include-after`, `toc`, `keywords`, `subtitle`, `abstract`, `math`, ...) can be set, but have no
   effect. There is no
   `--template` option either, so the skeleton cannot be replaced.

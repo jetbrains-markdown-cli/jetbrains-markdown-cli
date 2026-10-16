@@ -327,7 +327,7 @@ class SkeletonVariablesTest {
 
     @Test
     fun noTitleBlockWithoutTitleVariable() {
-        val html = html(variables = arrayOf("author" to text("A")))
+        val html = html(variables = arrayOf("author" to text("A"), "date" to text("D")))
         assertFalse("<header" in html, html)
         assertContains(html, "  <body>\n    <h1 id=\"heading\">")
     }
@@ -374,8 +374,30 @@ class SkeletonVariablesTest {
     }
 
     @Test
+    fun titleBlockHasDate() {
+        assertContains(
+            html(variables = arrayOf("title" to text("T"), "date" to text("2026 *and* 2027"))),
+            "      <h1 class=\"title\">T</h1>\n      <p class=\"date\">2026 <em>and</em> 2027</p>\n    </header>",
+        )
+    }
+
+    @Test
+    fun blockMarkdownInTheDateIsReducedToText() {
+        assertContains(html(variables = arrayOf("title" to text("T"), "date" to text("a\n\nb"))), "<p class=\"date\">a b</p>")
+    }
+
+    @Test
+    fun dateIsAMetaTag() {
+        assertContains(
+            html(variables = arrayOf("date" to text("2026-01-02"))),
+            "    <meta charset=\"UTF-8\">\n    <meta name=\"dcterms.date\" content=\"2026-01-02\">\n    <title>Heading</title>",
+        )
+        assertFalse("dcterms" in html())
+    }
+
+    @Test
     fun nothingChangesWithoutStandalone() {
-        val all = mapOf("title" to text("T"), "author" to text("A"), "lang" to text("en"))
+        val all = mapOf("title" to text("T"), "author" to text("A"), "date" to text("D"), "lang" to text("en"))
         assertEquals("<h1 id=\"heading\">Heading</h1>\n", markdownToHtml("# Heading\n", variables = all))
     }
 }

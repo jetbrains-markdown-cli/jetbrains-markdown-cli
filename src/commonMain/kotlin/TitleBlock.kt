@@ -5,17 +5,21 @@
  * <header id="title-block-header">
  *   <h1 class="title">…</h1>
  *   <p class="author">…</p>
+ *   <p class="date">…</p>
  * </header>
  * ```
  *
- * It is only produced for a `title`, as in pandoc; each of the `author`s is optional. The first two are Markdown
- * inlines.
+ * It is only produced for a `title`, as in pandoc; each of the `author`s and `date` are optional. The first three
+ * are Markdown inlines.
  */
 internal fun titleBlock(context: TemplateContext, flavour: Flavour): String {
     val title = context["title"]?.takeIf { it.asText().isNotBlank() } ?: return ""
     val lines = ArrayList<String>()
     lines += """      <h1 class="title">${inlineHtml(title, flavour)}</h1>"""
     for (author in authors(context)) lines += """      <p class="author">${inlineHtml(author, flavour)}</p>"""
+    context["date"]?.takeIf { it.asText().isNotBlank() }?.let {
+        lines += """      <p class="date">${inlineHtml(it, flavour)}</p>"""
+    }
     return "\n    <header id=\"title-block-header\">\n" + lines.joinToString("\n") + "\n    </header>"
 }
 
@@ -26,11 +30,14 @@ internal fun withTitleBlock(body: String, block: String): String = when {
     else -> body.replaceFirst("<body>", "<body>$block")
 }
 
-/** The `<meta>` lines for the `<head>`: the `author`s, as plain text. */
+/** The `<meta>` lines for the `<head>`: the `author`s and the `date`, as plain text. */
 internal fun metaTags(context: TemplateContext, flavour: Flavour): List<String> {
     val tags = ArrayList<String>()
     for (author in authors(context)) {
         tags += """    <meta name="author" content="${attribute(author, flavour)}">"""
+    }
+    context["date"]?.let { attribute(it, flavour) }?.takeIf { it.isNotEmpty() }?.let {
+        tags += """    <meta name="dcterms.date" content="$it">"""
     }
     return tags
 }

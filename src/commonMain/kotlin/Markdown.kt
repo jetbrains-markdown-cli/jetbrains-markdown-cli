@@ -62,7 +62,7 @@ private class CliFlavour(
  * [metadata] but not over [metadataOverrides].
  *
  * The variable `title` is the document's `<title>`; without it the text of the first heading is used. With a `title`
- * the `<body>` starts with a title block (see [titleBlock]). `author` also becomes `<meta>` tags, and
+ * the `<body>` starts with a title block (see [titleBlock]). `author` and `date` also become `<meta>` tags, and
  * `lang` the `lang` attribute of `<html>`.
  *
  * @throws InvalidMetadataException if a YAML metadata block in [markdown] is not valid YAML
