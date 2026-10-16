@@ -64,7 +64,7 @@ private class Highlighting(
  *   By default `idea` for the `default` and `intellij` styles of `css`, and `github` otherwise, for the last
  *   built-in style that is used and also if there is none (`none`).
  * - `highlight-style-dark`: the same for `prefers-color-scheme: dark`. By default `androidstudio` for `idea` and
- *   `github-dark` for `github`, as long as `highlight-style` is not set (then it is used for both), and none
+ *   `github-dark` for `github` (also for the `github` and `gitlab` styles of `css`), as long as `highlight-style` is not set (then it is used for both), and none
  *   for the `pandoc` style or without a built-in style because those pages are not dark.
  * - `highlight-languages`: the languages to load besides those of the script, from `languages/NAME.min.js`.
  *
@@ -96,7 +96,7 @@ private fun highlighting(context: TemplateContext): Highlighting? {
     val explicitDark = styleName(context, "highlight-style-dark")
     val builtIn = styleEntries(context).lastOrNull { it in BuiltInStyles.css }
     val (derivedLight, derivedDark) = when (builtIn) {
-        BuiltInStyles.GITHUB -> "github" to "github-dark"
+        BuiltInStyles.GITHUB, BuiltInStyles.GITLAB -> "github" to "github-dark"
         BuiltInStyles.DEFAULT, BuiltInStyles.INTELLIJ -> "idea" to "androidstudio"
         // The light-only `pandoc` style, or none at all.
         else -> "github" to null

@@ -25,9 +25,34 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ *
+ * The GitLab style is adapted from GitLab (app/assets/stylesheets/framework/typography.scss) and the design tokens of
+ * GitLab UI (@gitlab/ui), both licensed as follows:
+ *
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2011-present GitLab Inc.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
  */
 
-/** The title block ([titleBlock]) is pandoc's markup, not the IDE's or GitHub's, so the IntelliJ and GitHub styles share its rules (the pandoc style has pandoc's own). */
+/** The title block ([titleBlock]) is pandoc's markup, not the IDE's or GitHub's, so the IntelliJ, GitHub and GitLab styles share its rules (the pandoc style has pandoc's own). */
 private const val TITLE_BLOCK_CSS = """
 header#title-block-header {
   margin-bottom: 2em;
@@ -837,3 +862,325 @@ span.user-del {
   text-decoration: line-through;
 }
 """
+
+/**
+ * GitLab's rendering of Markdown (the `.md` rules of GitLab's `typography.scss`, with the values of the design tokens of
+ * GitLab UI, `@gitlab/ui` 138, that they use), for the whole page instead of an element with the class `md`; the colours
+ * switch to GitLab's dark theme with `prefers-color-scheme`. GitLab Sans and GitLab Mono are not available to a page
+ * on its own, so the fonts are the fallbacks of GitLab's font stacks.
+ */
+internal const val GITLAB_CSS = """
+/* Based on the Markdown style of GitLab and the tokens of GitLab UI (MIT, GitLab Inc.) */
+:root {
+  color-scheme: light dark;
+  --foreground: #3a383d;
+  --heading: #18171d;
+  --subtle-foreground: #646163;
+  --strong-foreground: #18171d;
+  --background: #ffffff;
+  --background-subtle: #f7f7f5;
+  --background-strong: #ecebea;
+  --border: #dcdbd9;
+  --border-strong: #c1bfbe;
+  --link: #27599f;
+  --control-background: #ffffff;
+  --control-border: #8a8888;
+  --control-selected: #3a383d;
+  --control-indicator: #ffffff;
+  --control-background-disabled: #f7f7f5;
+  --control-border-disabled: #dcdbd9;
+  --control-selected-disabled: #8a8888;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground: #ecebea;
+    --heading: #ffffff;
+    --subtle-foreground: #c1bfbe;
+    --strong-foreground: #ffffff;
+    --background: #18171d;
+    --background-subtle: #28272d;
+    --background-strong: #3a383d;
+    --border: #4d4b4e;
+    --border-strong: #646163;
+    --link: #9dc8f2;
+    --control-background: rgba(5, 5, 6, 0.4);
+    --control-border: #747273;
+    --control-selected: #ecebea;
+    --control-indicator: #18171d;
+    --control-background-disabled: rgba(255, 255, 255, 0.04);
+    --control-border-disabled: #3a383d;
+    --control-selected-disabled: #747273;
+  }
+}
+
+body {
+  -webkit-text-size-adjust: 100%;
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: 2rem;
+  color: var(--foreground);
+  background-color: var(--background);
+  font-family: 'GitLab Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans', Ubuntu, Cantarell, 'Helvetica Neue', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  font-size: 0.875rem;
+  line-height: 1.5;
+  word-wrap: break-word;
+}
+
+@media (max-width: 767px) {
+  body {
+    padding: 1rem;
+  }
+}
+
+body > :first-child {
+  margin-top: 0;
+}
+
+a {
+  color: var(--link);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+b,
+strong {
+  font-weight: 600;
+}
+
+img {
+  max-width: 100%;
+  vertical-align: baseline;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin-bottom: 0.5rem;
+  color: var(--heading);
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+h1 {
+  margin-top: 2rem;
+  font-size: 1.5rem;
+  letter-spacing: -0.01em;
+}
+
+h2 {
+  margin-top: 1.5rem;
+  font-size: 1.3125rem;
+  letter-spacing: -0.01em;
+}
+
+h3 {
+  margin-top: 1.5rem;
+  font-size: 1.125rem;
+}
+
+h4 {
+  margin-top: 1rem;
+  font-size: 1rem;
+}
+
+h5 {
+  margin-top: 1rem;
+  font-size: 0.875rem;
+}
+
+h6 {
+  margin-top: 1rem;
+  font-size: 0.8125rem;
+}
+
+p {
+  margin: 0 0 1rem;
+}
+
+blockquote {
+  margin: 0.5rem 0;
+  padding: 0.5rem 0 0.5rem 1rem;
+  color: var(--subtle-foreground);
+  border-left: 4px solid var(--border-strong);
+}
+
+blockquote p {
+  color: inherit;
+  line-height: 1.5;
+}
+
+blockquote p:last-child {
+  margin: 0;
+}
+
+hr {
+  margin: 10px 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+ul,
+ol {
+  margin: 0 0 1rem;
+  padding: 0;
+}
+
+ul ul,
+ul ol,
+ol ul,
+ol ol {
+  margin-bottom: 0;
+}
+
+li > p ~ ul,
+li > p ~ ol {
+  margin-bottom: 1rem;
+}
+
+body > ul,
+blockquote > ul {
+  list-style-type: disc;
+}
+
+body > ul ul,
+blockquote > ul ul {
+  list-style-type: circle;
+}
+
+body > ul ul ul,
+blockquote > ul ul ul {
+  list-style-type: square;
+}
+
+blockquote > ul:last-child,
+blockquote > ol:last-child {
+  margin-bottom: 0;
+}
+
+li {
+  margin-left: 25px;
+  padding-left: 3px;
+  line-height: 1.6em;
+}
+
+table {
+  display: block;
+  width: auto;
+  margin: 16px 0;
+  overflow-x: auto;
+  border: 0;
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+th,
+td {
+  padding: 10px 15px;
+  border: 1px solid var(--border);
+}
+
+th {
+  text-align: left;
+  font-weight: 600;
+}
+
+code,
+pre {
+  font-family: 'GitLab Mono', 'JetBrains Mono', Menlo, 'DejaVu Sans Mono', 'Liberation Mono', Consolas, 'Ubuntu Mono', 'Courier New', 'andale mono', 'lucida console', monospace;
+}
+
+code {
+  padding: 2px 4px;
+  font-size: 90%;
+  color: var(--strong-foreground);
+  background-color: var(--background-strong);
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: keep-all;
+}
+
+pre {
+  margin: 0 0 1rem;
+  padding: 8px 12px;
+  overflow-x: auto;
+  font-size: 0.875rem;
+  line-height: 1.6em;
+  color: var(--foreground);
+  background-color: var(--background-subtle);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  word-wrap: break-word;
+}
+
+pre code {
+  padding: 0;
+  font-size: inherit;
+  color: inherit;
+  background-color: transparent;
+  border-radius: 0;
+  white-space: pre;
+  word-wrap: normal;
+  overflow-wrap: normal;
+}
+
+.task-list-item {
+  position: relative;
+  min-height: 22px;
+  margin-inline-start: 0;
+  padding-inline-start: 32px;
+  list-style-type: none;
+}
+
+.task-list-item > .task-list-item-checkbox {
+  all: unset;
+  position: absolute;
+  inset-inline-start: 8px;
+  inset-block-start: 3px;
+  display: block;
+  box-sizing: border-box;
+  width: 20px;
+  height: 20px;
+  background-color: var(--control-background);
+  border: 1px solid var(--control-border);
+  border-radius: 4px;
+}
+
+.task-list-item > .task-list-item-checkbox:checked {
+  background-color: var(--control-selected);
+  border-color: var(--control-selected);
+}
+
+.task-list-item > .task-list-item-checkbox:checked::after {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  margin-top: -1px;
+  margin-left: -1px;
+  background-color: var(--control-indicator);
+  mask: url("data:image/svg+xml,%3Csvg width='10' height='8' viewBox='0 0 10 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0.75 4.76289L3.15312 7.24678L9.25 1.1499' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center center no-repeat;
+}
+
+.task-list-item > .task-list-item-checkbox:disabled {
+  background-color: var(--control-background-disabled);
+  border-color: var(--control-border-disabled);
+}
+
+.task-list-item > .task-list-item-checkbox:disabled:checked {
+  background-color: var(--control-selected-disabled);
+  border-color: var(--control-selected-disabled);
+}
+
+span.user-del {
+  text-decoration: line-through;
+}
+""" + TITLE_BLOCK_CSS

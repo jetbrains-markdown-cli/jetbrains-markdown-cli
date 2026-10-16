@@ -4,6 +4,7 @@ internal object BuiltInStyles {
     const val DEFAULT = "default"
     const val INTELLIJ = "intellij"
     const val GITHUB = "github"
+    const val GITLAB = "gitlab"
     const val PANDOC = "pandoc"
 
     /** The CSS of each alias that stands for a stylesheet (`none` is none). */
@@ -11,11 +12,12 @@ internal object BuiltInStyles {
         DEFAULT to INTELLIJ_CSS,
         INTELLIJ to INTELLIJ_CSS,
         GITHUB to GITHUB_CSS,
+        GITLAB to GITLAB_CSS,
         PANDOC to PANDOC_CSS,
     )
 
     /** The styles that have a dark colour scheme (for `prefers-color-scheme: dark`), unlike the light-only `pandoc`. */
-    val darkAware: Set<String> = setOf(DEFAULT, INTELLIJ, GITHUB)
+    val darkAware: Set<String> = setOf(DEFAULT, INTELLIJ, GITHUB, GITLAB)
 }
 
 /**

@@ -498,6 +498,21 @@ class StyleVariableTest {
     }
 
     @Test
+    fun gitlabStyleIsGitLabs() {
+        val document = html(text("gitlab"))
+        val gitlab = style(document)
+        assertContains(gitlab, "GitLab Sans")
+        assertContains(gitlab, "--link: #27599f;")
+        assertContains(gitlab, "font-size: 1.5rem;")
+        assertContains(gitlab, "prefers-color-scheme: dark")
+        assertContains(gitlab, ".task-list-item > .task-list-item-checkbox:checked::after")
+        assertFalse("github-markdown-css" in gitlab)
+        assertFalse("<link" in document)
+        assertNotEquals(style(html(text("github"))), gitlab)
+        assertNotEquals(style(html(text("intellij"))), gitlab)
+    }
+
+    @Test
     fun pandocStyleIsPandocsDefault() {
         val document = html(text("pandoc"))
         val pandoc = style(document)
@@ -517,7 +532,7 @@ class StyleVariableTest {
 
     @Test
     fun builtInStylesAreSelfContained() {
-        for (alias in listOf("default", "intellij", "github", "pandoc")) {
+        for (alias in listOf("default", "intellij", "github", "gitlab", "pandoc")) {
             val css = style(html(text(alias)))
             assertTrue(css.isNotBlank(), alias)
             assertEquals(css.count { it == '{' }, css.count { it == '}' }, alias)
@@ -652,6 +667,7 @@ class HighlightVariableTest {
         assertEquals(listOf("idea", "androidstudio"), styles("css" to text("default")))
         assertEquals(listOf("idea", "androidstudio"), styles("css" to text("intellij")))
         assertEquals(listOf("github", "github-dark"), styles("css" to text("github")))
+        assertEquals(listOf("github", "github-dark"), styles("css" to text("gitlab")))
         // The last built-in style wins the cascade, so it decides.
         assertEquals(listOf("github", "github-dark"), styles("css" to items("intellij", "github")))
         assertEquals(listOf("idea", "androidstudio"), styles("css" to items("github", "intellij", "none")))
@@ -748,7 +764,7 @@ class HighlightVariableTest {
 
     @Test
     fun derivedStylesTakeTheBoxOfThePre() {
-        for (alias in listOf("default", "intellij", "github", "pandoc")) {
+        for (alias in listOf("default", "intellij", "github", "gitlab", "pandoc")) {
             val head = html(on, "css" to text(alias)).substringBefore("</head>")
             val rule = head.substringAfter("pre code.hljs {").substringBefore("}")
             assertContains(rule, "background: transparent;", message = alias)
@@ -858,6 +874,7 @@ class MermaidVariableTest {
         assertEquals(light, themes(html(on, "css" to text("default"))))
         assertEquals(light, themes(html(on, "css" to text("intellij"))))
         assertEquals(light, themes(html(on, "css" to text("github"))))
+        assertEquals(light, themes(html(on, "css" to text("gitlab"))))
         assertEquals(light, themes(html(on, "css" to items("my.css", "github"))))
         assertEquals(light, themes(html(on, "css" to items("github", "none"))))
         // Pandoc's page is light only: the last built-in style decides, like the cascade.
