@@ -29,6 +29,15 @@ echo '# Hello *world*' | jetbrains-markdown-cli --standalone
 
 The `<title>` is the text of the first heading.
 
+A [YAML metadata block](https://pandoc.org/MANUAL.html#extension-yaml_metadata_block) at the start of the document
+(or after a blank line) is not part of the output; it holds the document's metadata:
+
+```markdown
+---
+title: My document
+---
+```
+
 ## Options
 
 | Option                         | Description |

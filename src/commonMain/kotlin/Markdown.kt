@@ -57,6 +57,11 @@ private class CliFlavour(
  *
  * [variables], [metadata] and [metadataOverrides] are the template variables of the document skeleton.
  * Variables take precedence over [metadataOverrides], which take precedence over [metadata].
+ *
+ * YAML metadata blocks in the document are not part of the output and, being metadata, take precedence over
+ * [metadata] but not over [metadataOverrides].
+ *
+ * @throws InvalidMetadataException if a YAML metadata block in [markdown] is not valid YAML
  */
 fun markdownToHtml(
     markdown: String,
@@ -67,7 +72,8 @@ fun markdownToHtml(
     metadataOverrides: TemplateContext = emptyMap(),
 ): String {
     // The parser requires LF line endings, see the JetBrains/markdown README.
-    val src = markdown.replace("\r\n", "\n").replace("\r", "\n")
+    val normalized = markdown.replace("\r\n", "\n").replace("\r", "\n")
+    val (src, _) = extractMetadataBlocks(normalized)
     val descriptor = CliFlavour(standalone, flavour.create())
     val tree = MarkdownParser(descriptor, cancellationToken = CancellationToken.NonCancellable)
         .buildMarkdownTreeFromString(src as CharSequence)

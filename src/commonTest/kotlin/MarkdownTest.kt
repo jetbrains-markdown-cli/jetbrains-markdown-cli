@@ -218,6 +218,96 @@ class MetadataTest {
     }
 }
 
+class MetadataBlockTest {
+    private fun text(value: String) = TemplateValue.Text(value)
+
+    private fun extract(markdown: String) = extractMetadataBlocks(markdown)
+
+    @Test
+    fun takesBlockAtStartOfDocument() {
+        val (rest, fields) = extract("---\ntitle: A\nauthor: [x, y]\n---\n\n# Heading\n")
+        assertEquals("\n# Heading\n", rest)
+        assertEquals(text("A"), fields["title"])
+        assertEquals(TemplateValue.Items(listOf(text("x"), text("y"))), fields["author"])
+    }
+
+    @Test
+    fun blockMayEndWithThreeDots() {
+        val (rest, fields) = extract("---\ntitle: A\n...\ntext\n")
+        assertEquals("text\n", rest)
+        assertEquals(text("A"), fields["title"])
+    }
+
+    @Test
+    fun delimitersMayHaveTrailingSpaces() {
+        val (rest, fields) = extract("---  \ntitle: A\n---  \ntext")
+        assertEquals("text", rest)
+        assertEquals(text("A"), fields["title"])
+    }
+
+    @Test
+    fun takesBlockAfterBlankLine() {
+        val (rest, fields) = extract("text\n\n---\ntitle: A\n---\n\nmore\n")
+        assertEquals("text\n\n\nmore\n", rest)
+        assertEquals(text("A"), fields["title"])
+    }
+
+    @Test
+    fun laterBlocksReplaceFieldsOfEarlierOnes() {
+        val (rest, fields) = extract("---\ntitle: A\nkeep: yes\n---\n\ntext\n\n---\ntitle: B\n---\n")
+        assertEquals("\ntext\n\n", rest)
+        assertEquals(text("B"), fields["title"])
+        assertEquals(text("yes"), fields["keep"])
+    }
+
+    @Test
+    fun leavesThematicBreaksAlone() {
+        for (markdown in listOf(
+            "text\n---\ntitle: A\n---\n", // directly after text: a setext heading
+            "---\n\ntitle: A\n---\n", // blank line after the opening delimiter
+            " ---\ntitle: A\n---\n", // indented
+            "---\ntitle: A\n", // never closed
+            "---\njust text\n---\n", // not a mapping
+            "---\n- a\n- b\n---\n", // not a mapping
+        )) {
+            assertEquals(markdown to emptyMap(), extract(markdown), markdown)
+        }
+    }
+
+    @Test
+    fun leavesFencedCodeAlone() {
+        for (markdown in listOf(
+            "```\n\n---\ntitle: A\n---\n```\n",
+            "~~~yaml\n\n---\ntitle: A\n---\n~~~\n",
+            "````\n```\n\n---\ntitle: A\n---\n````\n",
+        )) {
+            assertEquals(markdown to emptyMap(), extract(markdown), markdown)
+        }
+        val (rest, fields) = extract("```\ncode\n```\n\n---\ntitle: A\n---\n")
+        assertEquals("```\ncode\n```\n\n", rest)
+        assertEquals(text("A"), fields["title"])
+    }
+
+    @Test
+    fun rejectsInvalidYaml() {
+        val error = assertFailsWith<InvalidMetadataException> { extract("text\n\n---\ntitle: [a\n---\n") }
+        assertContains(error.message.orEmpty(), "line 3")
+    }
+
+    @Test
+    fun blocksAreRemovedFromTheOutput() {
+        val html = markdownToHtml("---\ntitle: A\n---\n\n# Heading\n")
+        assertEquals("<h1 id=\"heading\">Heading</h1>\n", html)
+        assertEquals("", markdownToHtml("---\ntitle: A\n---\n"))
+        assertFalse("<hr" in markdownToHtml("---\ntitle: A\n---\n\ntext\n", standalone = true))
+    }
+
+    @Test
+    fun crlfBlocksAreRecognized() {
+        assertEquals("<p>text</p>\n", markdownToHtml("---\r\ntitle: A\r\n---\r\n\r\ntext\r\n"))
+    }
+}
+
 class SettingsTest {
     private fun text(value: String) = TemplateValue.Text(value)
 
@@ -419,6 +509,12 @@ class MarkdownCliTest {
         val invalid = assertFailsWith<CliktError> { run("-d", "bad.yaml", files = mapOf("bad.yaml" to "flavour: bogus")) }
         assertContains(invalid.message.orEmpty(), "bad.yaml")
         assertContains(invalid.message.orEmpty(), "bogus")
+    }
+
+    @Test
+    fun rejectsInvalidMetadataBlockInInput() {
+        val error = assertFailsWith<CliktError> { run(input = "---\ntitle: [a\n---\n") }
+        assertContains(error.message.orEmpty(), "line 1")
     }
 
     @Test

@@ -46,7 +46,7 @@ class MarkdownCli(
         )
         val settings = defaultsFiles.map(::loadDefaults).fold(Settings(), Settings::then).then(commandLine)
         val metadata = mergeMetadata(settings.metadataFiles.map(::loadMetadataFile))
-        write(
+        val html = try {
             markdownToHtml(
                 readInput(),
                 settings.flavour ?: Flavour.DEFAULT,
@@ -55,7 +55,10 @@ class MarkdownCli(
                 metadata,
                 settings.metadata,
             )
-        )
+        } catch (e: InvalidMetadataException) {
+            throw CliktError("Error in the input: ${e.message}")
+        }
+        write(html)
     }
 
     private fun loadDefaults(path: String): Settings {
