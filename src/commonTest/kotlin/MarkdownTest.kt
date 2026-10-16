@@ -757,6 +757,151 @@ class HighlightVariableTest {
     }
 }
 
+class MermaidVariableTest {
+    private fun text(value: String) = TemplateValue.Text(value)
+
+    private fun items(vararg values: String) = TemplateValue.Items(values.map(::text))
+
+    private val on = "mermaid" to TemplateValue.Flag(true)
+
+    private val diagram = "# Heading\n\n```mermaid\ngraph TD\n  A --> B\n```\n"
+
+    private fun html(vararg variables: Pair<String, TemplateValue>, markdown: String = diagram) =
+        markdownToHtml(markdown, standalone = true, variables = mapOf(*variables))
+
+    private fun scripts(document: String) = Regex("<script src=\"([^\"]+)\" defer></script>").findAll(document).map { it.groupValues[1] }.toList()
+
+    private fun themes(document: String) = listOf("light", "dark").map { Regex("var $it = (\"[a-z]+\"|null);").find(document)?.groupValues?.get(1) }
+
+    private val base = DEFAULT_MERMAID_URL
+
+    @Test
+    fun isOffByDefault() {
+        for (document in listOf(html(), html("mermaid" to TemplateValue.Flag(false)), html("mermaid" to text("false")), html("mermaid" to text("")))) {
+            assertFalse("<script" in document, document)
+            assertFalse("mermaid.min.js" in document, document)
+            assertFalse("div.mermaid" in document, document)
+        }
+        // The theme variables alone do not turn it on, and are not even looked at.
+        assertEquals(html(), html("mermaid-theme" to text("nonsense"), "mermaid-url" to text("x")))
+    }
+
+    @Test
+    fun valuesOfMermaid() {
+        for (value in listOf(TemplateValue.Flag(true), text("true"), text("TRUE"), text(" true "), items("false", "true"))) {
+            assertTrue("<script" in html("mermaid" to value), value.toString())
+        }
+        assertFalse("<script" in html("mermaid" to items("true", "false")))
+    }
+
+    @Test
+    fun rejectsOtherValues() {
+        for (value in listOf(text("ture"), text("yes"), TemplateValue.Fields(emptyMap()))) {
+            val error = assertFailsWith<InvalidVariableException> { html("mermaid" to value) }
+            assertContains(error.message.orEmpty(), "`mermaid`")
+        }
+    }
+
+    @Test
+    fun loadsMermaidFromTheOfficialPackage() {
+        assertEquals(listOf("$base/mermaid.min.js"), scripts(html(on)))
+        assertEquals("https://cdn.jsdelivr.net/npm/mermaid/dist", base)
+    }
+
+    @Test
+    fun findsTheFencesOfTheGeneratedMarkup() {
+        // The markup the script looks for: the class of the <code> in a <pre>.
+        assertContains(html(on), "<pre><code class=\"language-mermaid\">graph TD")
+        assertContains(html(on), "pre > code[class*=\"language-\"]")
+        assertContains(html(on), "language-mermaid(?:\\s|$)")
+        assertContains(html(on), "mermaid.parse(diagram.source, { suppressErrors: true })")
+        assertContains(html(on), "mermaid.render(id, diagram.source)")
+        assertContains(html(on), "pre.replaceWith(diagram.element)")
+    }
+
+    @Test
+    fun scriptComesAfterTheDeferredFile() {
+        val document = html(on)
+        assertTrue(document.indexOf("mermaid.min.js") < document.indexOf("DOMContentLoaded"))
+        assertContains(document, "if (typeof mermaid === \"undefined\") return;")
+    }
+
+    @Test
+    fun themeFollowsTheBuiltInStyle() {
+        val light = listOf("\"default\"", "\"dark\"")
+        assertEquals(light, themes(html(on)))
+        assertEquals(light, themes(html(on, "css" to text("default"))))
+        assertEquals(light, themes(html(on, "css" to text("intellij"))))
+        assertEquals(light, themes(html(on, "css" to text("github"))))
+        assertEquals(light, themes(html(on, "css" to items("my.css", "github"))))
+        assertEquals(light, themes(html(on, "css" to items("github", "none"))))
+    }
+
+    @Test
+    fun withoutABuiltInStyleThePageIsLight() {
+        assertEquals(listOf("\"default\"", "null"), themes(html(on, "css" to text("none"))))
+        assertEquals(listOf("\"default\"", "null"), themes(html(on, "css" to items("none", "my.css"))))
+        assertEquals(listOf("\"default\"", "null"), themes(html(on, "css" to text("my.css"))))
+    }
+
+    @Test
+    fun explicitThemesReplaceTheDerivedOnes() {
+        assertEquals(listOf("\"forest\"", "null"), themes(html(on, "mermaid-theme" to text("forest"))))
+        assertEquals(listOf("\"neutral\"", "null"), themes(html(on, "mermaid-theme" to text(" neutral "), "css" to text("github"))))
+        assertEquals(listOf("\"default\"", "\"base\""), themes(html(on, "mermaid-theme-dark" to text("base"))))
+        assertEquals(listOf("\"forest\"", "\"dark\""), themes(html(on, "mermaid-theme" to text("forest"), "mermaid-theme-dark" to text("dark"))))
+        assertEquals(listOf("\"default\"", "\"neutral\""), themes(html(on, "mermaid-theme-dark" to text("neutral"), "css" to text("none"))))
+        assertEquals(listOf("\"default\"", "\"dark\""), themes(html(on, "mermaid-theme" to text(""))))
+    }
+
+    @Test
+    fun rejectsThemesMermaidDoesNotHave() {
+        for (variable in listOf("mermaid-theme", "mermaid-theme-dark")) {
+            for (name in listOf("Dark", "\"; alert(1); \"", "nonsense", "../x")) {
+                val error = assertFailsWith<InvalidVariableException>("$variable $name") { html(on, variable to text(name)) }
+                assertContains(error.message.orEmpty(), "`$variable`")
+            }
+        }
+    }
+
+    @Test
+    fun urlIsADirectoryOrTheScript() {
+        fun url(url: String) = scripts(html(on, "mermaid-url" to text(url)))
+        assertEquals(listOf("vendor/mermaid/mermaid.min.js"), url("vendor/mermaid"))
+        assertEquals(listOf("https://cdnjs.example/mermaid/mermaid.min.js"), url("https://cdnjs.example/mermaid/"))
+        assertEquals(listOf("https://example.com/lib/mm.js"), url("https://example.com/lib/mm.js"))
+        assertEquals(listOf("/mm.js"), url("/mm.js"))
+        assertEquals(listOf("/a/mm.js?v=1/2"), url("/a/mm.js?v=1/2"))
+        assertEquals(listOf("/mermaid.min.js"), url("/"))
+        assertEquals(listOf("$base/mermaid.min.js"), url("  "))
+        assertEquals(listOf("a&quot;b/mermaid.min.js"), url("a\"b"))
+    }
+
+    @Test
+    fun styleComesBeforeTheStylesAndScriptsAfter() {
+        val head = html(on, "css" to items("github", "my.css")).substringBefore("</head>")
+        val order = listOf("<title>", "div.mermaid {", "--foreground", "href=\"my.css\"", "mermaid.min.js", "DOMContentLoaded").map { head.indexOf(it) }
+        assertTrue(order.all { it >= 0 }, head)
+        assertEquals(order.sorted(), order, head)
+    }
+
+    @Test
+    fun scriptsOfHighlightComeFirstAndDoNotInterfere() {
+        val head = html(on, "highlight" to TemplateValue.Flag(true)).substringBefore("</head>")
+        assertEquals(listOf("$base/mermaid.min.js").let { listOf("$DEFAULT_HIGHLIGHT_URL/highlight.min.js") + it }, scripts(head))
+        assertEquals(1, Regex("div\\.mermaid \\{").findAll(head).count())
+        assertTrue(head.indexOf("hljs.getLanguage") < head.indexOf("mermaid.parse"))
+    }
+
+    @Test
+    fun bodyAndOtherOutputAreUnchanged() {
+        val body = { document: String -> document.substringAfter("<body>").substringBefore("</body>") }
+        assertEquals(body(html()), body(html(on)))
+        assertEquals(markdownToHtml(diagram), markdownToHtml(diagram, variables = mapOf(on)))
+        assertEquals(html(), html("mermaid-url" to text("x"), "mermaid-theme" to text("invalid")))
+    }
+}
+
 class MetadataBlockTest {
     private fun text(value: String) = TemplateValue.Text(value)
 
@@ -1225,6 +1370,28 @@ class MarkdownCliTest {
         val error = assertFailsWith<CliktError> { run("-s", "-V", "highlight=ture") }
         assertContains(error.message.orEmpty(), "`highlight`")
         assertFailsWith<CliktError> { run("-s", "-V", "highlight", "-V", "highlight-style=../x") }
+    }
+
+    @Test
+    fun mermaidWorksFromEveryMethod() {
+        val files = mapOf("meta.yaml" to "mermaid: true\nmermaid-theme: forest\n", "d.yaml" to "variables:\n  mermaid: true\n  mermaid-url: ./mm\n")
+        fun scripts(vararg args: String, input: String = "# T\n") = run("-s", *args, input = input, files = files).lines().filter { "<script src" in it }.map { it.trim() }
+
+        assertEquals(emptyList(), scripts())
+        assertEquals(listOf("<script src=\"$DEFAULT_MERMAID_URL/mermaid.min.js\" defer></script>"), scripts("-V", "mermaid"))
+        assertEquals(listOf("<script src=\"$DEFAULT_MERMAID_URL/mermaid.min.js\" defer></script>"), scripts("-V", "mermaid=true"))
+        assertEquals(listOf("<script src=\"./mm/mermaid.min.js\" defer></script>"), scripts("-d", "d.yaml"))
+        assertEquals(emptyList(), scripts("-d", "d.yaml", "-V", "mermaid=false"))
+        assertEquals(1, scripts("--metadata-file", "meta.yaml").size)
+        assertEquals(1, scripts(input = "---\nmermaid: true\n---\n").size)
+        assertContains(run("-s", "--metadata-file", "meta.yaml", files = files), "var light = \"forest\";")
+    }
+
+    @Test
+    fun rejectsInvalidMermaidVariables() {
+        val error = assertFailsWith<CliktError> { run("-s", "-V", "mermaid=ture") }
+        assertContains(error.message.orEmpty(), "`mermaid`")
+        assertFailsWith<CliktError> { run("-s", "-V", "mermaid", "-V", "mermaid-theme=nonsense") }
     }
 
     @Test

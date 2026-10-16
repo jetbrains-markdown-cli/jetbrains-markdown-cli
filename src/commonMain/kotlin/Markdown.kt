@@ -64,14 +64,15 @@ private class CliFlavour(
  * The variable `title` is the document's `<title>`; without it the text of the first heading is used. With a `title`
  * the `<body>` starts with a title block (see [titleBlock]). `author` and `date` also become `<meta>` tags, and
  * `lang` the `lang` attribute of `<html>`. The variable `css` lists the styles, see [styleTags]: the built-in
- * `default` style unless set. With `highlight` the code blocks are highlighted by highlight.js, see [highlightStyleTags].
+ * `default` style unless set. With `highlight` the code blocks are highlighted by highlight.js, see [highlightStyleTags], and with
+ * `mermaid` the `mermaid` ones are drawn as diagrams, see [mermaidStyleTags].
  *
  * With [tableOfContents] (`--toc`) the `<body>` has a table of contents of the headings down to level [tocDepth]
  * after the title block, and `toc` and `toc-title` are variables of it, see [tableOfContents]. It is only part of a
  * [standalone] document, like in pandoc.
  *
  * @throws InvalidMetadataException if a YAML metadata block in [markdown] is not valid YAML
- * @throws InvalidVariableException if a variable has a value it cannot have, see [highlightStyleTags]
+ * @throws InvalidVariableException if a variable has a value it cannot have, see [highlightStyleTags] and [mermaidStyleTags]
  * @throws IllegalArgumentException if [tocDepth] is not between 1 and 6
  */
 fun markdownToHtml(
@@ -95,7 +96,8 @@ fun markdownToHtml(
     val toc = tableOfContents(context, if (tableOfContents) tocEntries(rendered, src, tocDepth) else null)
     val lang = context["lang"]?.asText()?.trim()?.takeIf { it.isNotEmpty() }
     val head = listOf("    <meta charset=\"UTF-8\">") + metaTags(context, flavour) +
-        "    <title>$title</title>" + highlightStyleTags(context) + styleTags(context) + highlightScriptTags(context)
+        "    <title>$title</title>" + highlightStyleTags(context) + mermaidStyleTags(context) + styleTags(context) +
+            highlightScriptTags(context) + mermaidScriptTags(context)
     return """
         |<!DOCTYPE html>
         |<html${if (lang == null) "" else " lang=\"${lang.escapeHtml()}\""}>
