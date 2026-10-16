@@ -320,6 +320,15 @@ pandoc is much bigger, this tool only converts Markdown to HTML:
   (`<pre><code class="language-xyz">` instead of pandoc's `<div class="sourceCode">` with highlighting spans). The `<head>` has no
   `generator`, `viewport` or `description` `<meta>` and the `<html>` element no `xmlns`/`xml:lang`.
 
+## Licenses of the built-in styles
+
+The CSS of the [built-in styles](#styles) is adapted from other projects and used under their licenses: `github` and
+`intellij` from [github-markdown-css](https://github.com/sindresorhus/github-markdown-css) (MIT, Sindre Sorhus),
+`gitlab` from [GitLab](https://gitlab.com/gitlab-org/gitlab) and [GitLab UI](https://gitlab.com/gitlab-org/gitlab-ui)
+(MIT, GitLab Inc.), and `pandoc` from the default style of [pandoc](https://github.com/jgm/pandoc)'s HTML template
+(BSD 3-clause, John MacFarlane; the templates are dual-licensed with the GPL). The license texts are in
+`src/commonMain/kotlin/StyleSheets.kt`.
+
 ## Downloads
 
 Native binaries (no JVM required) are attached to each [release](../../releases), built by GitHub Actions
