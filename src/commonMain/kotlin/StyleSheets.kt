@@ -114,6 +114,111 @@ header#title-block-header .abstract-title {
  */
 internal const val INTELLIJ_CSS = """
 /* Based on the preview of IntelliJ's Markdown plugin, which is adapted from github-markdown-css (MIT, Sindre Sorhus) */
+
+/* Web fonts (OFL-1.1), for systems without them: Arimo (metric-compatible with Arial and Helvetica) and JetBrains Mono, loaded only when used */
+@font-face {
+  font-family: 'Arimo Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400 700;
+  src: url(https://cdn.jsdelivr.net/npm/@fontsource-variable/arimo@5.3.0/files/arimo-latin-wght-normal.woff2) format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+@font-face {
+  font-family: 'Arimo Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400 700;
+  src: url(https://cdn.jsdelivr.net/npm/@fontsource-variable/arimo@5.3.0/files/arimo-latin-ext-wght-normal.woff2) format('woff2');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Arimo Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400 700;
+  src: url(https://cdn.jsdelivr.net/npm/@fontsource-variable/arimo@5.3.0/files/arimo-cyrillic-wght-normal.woff2) format('woff2');
+  unicode-range: U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116;
+}
+
+@font-face {
+  font-family: 'Arimo Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400 700;
+  src: url(https://cdn.jsdelivr.net/npm/@fontsource-variable/arimo@5.3.0/files/arimo-greek-wght-normal.woff2) format('woff2');
+  unicode-range: U+0370-0377,U+037A-037F,U+0384-038A,U+038C,U+038E-03A1,U+03A3-03FF;
+}
+
+@font-face {
+  font-family: 'Arimo Variable';
+  font-style: italic;
+  font-display: swap;
+  font-weight: 400 700;
+  src: url(https://cdn.jsdelivr.net/npm/@fontsource-variable/arimo@5.3.0/files/arimo-latin-wght-italic.woff2) format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+@font-face {
+  font-family: 'Arimo Variable';
+  font-style: italic;
+  font-display: swap;
+  font-weight: 400 700;
+  src: url(https://cdn.jsdelivr.net/npm/@fontsource-variable/arimo@5.3.0/files/arimo-latin-ext-wght-italic.woff2) format('woff2');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Arimo Variable';
+  font-style: italic;
+  font-display: swap;
+  font-weight: 400 700;
+  src: url(https://cdn.jsdelivr.net/npm/@fontsource-variable/arimo@5.3.0/files/arimo-cyrillic-wght-italic.woff2) format('woff2');
+  unicode-range: U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116;
+}
+
+@font-face {
+  font-family: 'Arimo Variable';
+  font-style: italic;
+  font-display: swap;
+  font-weight: 400 700;
+  src: url(https://cdn.jsdelivr.net/npm/@fontsource-variable/arimo@5.3.0/files/arimo-greek-wght-italic.woff2) format('woff2');
+  unicode-range: U+0370-0377,U+037A-037F,U+0384-038A,U+038C,U+038E-03A1,U+03A3-03FF;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(https://cdn.jsdelivr.net/npm/@gitlab/fonts@1.3.1/jetbrains-mono/JetBrainsMono.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url(https://cdn.jsdelivr.net/npm/@gitlab/fonts@1.3.1/jetbrains-mono/JetBrainsMono-Bold.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: italic;
+  font-display: swap;
+  font-weight: 400;
+  src: url(https://cdn.jsdelivr.net/npm/@gitlab/fonts@1.3.1/jetbrains-mono/JetBrainsMono-Italic.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: italic;
+  font-display: swap;
+  font-weight: 700;
+  src: url(https://cdn.jsdelivr.net/npm/@gitlab/fonts@1.3.1/jetbrains-mono/JetBrainsMono-BoldItalic.woff2) format('woff2');
+}
 :root {
   color-scheme: light dark;
   --default-font-size: 14px;
@@ -139,7 +244,7 @@ internal const val INTELLIJ_CSS = """
 body {
   -webkit-text-size-adjust: 100%;
   -ms-text-size-adjust: 100%;
-  font-family: Helvetica, Arial, freesans, sans-serif;
+  font-family: Helvetica, Arial, freesans, 'Arimo Variable', sans-serif;
   font-size: var(--default-font-size);
   line-height: 1.6;
   word-wrap: break-word;
@@ -409,6 +514,79 @@ span.user-del {
  */
 internal const val GITHUB_CSS = """
 /* Based on github-markdown-css (MIT, Sindre Sorhus) */
+
+/* Web font (OFL-1.1) for systems without Noto Sans, loaded only when used */
+@font-face {
+  font-family: 'Noto Sans Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url(https://cdn.jsdelivr.net/npm/@fontsource-variable/noto-sans@5.3.0/files/noto-sans-latin-wght-normal.woff2) format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+@font-face {
+  font-family: 'Noto Sans Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url(https://cdn.jsdelivr.net/npm/@fontsource-variable/noto-sans@5.3.0/files/noto-sans-latin-ext-wght-normal.woff2) format('woff2');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Noto Sans Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url(https://cdn.jsdelivr.net/npm/@fontsource-variable/noto-sans@5.3.0/files/noto-sans-cyrillic-wght-normal.woff2) format('woff2');
+  unicode-range: U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116;
+}
+
+@font-face {
+  font-family: 'Noto Sans Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url(https://cdn.jsdelivr.net/npm/@fontsource-variable/noto-sans@5.3.0/files/noto-sans-greek-wght-normal.woff2) format('woff2');
+  unicode-range: U+0370-0377,U+037A-037F,U+0384-038A,U+038C,U+038E-03A1,U+03A3-03FF;
+}
+
+@font-face {
+  font-family: 'Noto Sans Variable';
+  font-style: italic;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url(https://cdn.jsdelivr.net/npm/@fontsource-variable/noto-sans@5.3.0/files/noto-sans-latin-wght-italic.woff2) format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+@font-face {
+  font-family: 'Noto Sans Variable';
+  font-style: italic;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url(https://cdn.jsdelivr.net/npm/@fontsource-variable/noto-sans@5.3.0/files/noto-sans-latin-ext-wght-italic.woff2) format('woff2');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Noto Sans Variable';
+  font-style: italic;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url(https://cdn.jsdelivr.net/npm/@fontsource-variable/noto-sans@5.3.0/files/noto-sans-cyrillic-wght-italic.woff2) format('woff2');
+  unicode-range: U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116;
+}
+
+@font-face {
+  font-family: 'Noto Sans Variable';
+  font-style: italic;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url(https://cdn.jsdelivr.net/npm/@fontsource-variable/noto-sans@5.3.0/files/noto-sans-greek-wght-italic.woff2) format('woff2');
+  unicode-range: U+0370-0377,U+037A-037F,U+0384-038A,U+038C,U+038E-03A1,U+03A3-03FF;
+}
 :root {
   color-scheme: light dark;
   --foreground: #1f2328;
@@ -443,7 +621,7 @@ body {
   padding: 45px;
   color: var(--foreground);
   background-color: var(--background);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", "Noto Sans Variable", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
   font-size: 16px;
   line-height: 1.5;
   word-wrap: break-word;
@@ -906,6 +1084,39 @@ span.user-del {
  */
 internal const val GITLAB_CSS = """
 /* Based on the Markdown style of GitLab and the tokens of GitLab UI (MIT, GitLab Inc.) */
+
+/* GitLab's own fonts (OFL-1.1, @gitlab/fonts), loaded only when used */
+@font-face {
+  font-family: 'GitLab Sans';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url(https://cdn.jsdelivr.net/npm/@gitlab/fonts@1.3.1/gitlab-sans/GitLabSans.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: 'GitLab Sans';
+  font-style: italic;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url(https://cdn.jsdelivr.net/npm/@gitlab/fonts@1.3.1/gitlab-sans/GitLabSans-Italic.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: 'GitLab Mono';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 800;
+  src: url(https://cdn.jsdelivr.net/npm/@gitlab/fonts@1.3.1/gitlab-mono/GitLabMono.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: 'GitLab Mono';
+  font-style: italic;
+  font-display: swap;
+  font-weight: 100 800;
+  src: url(https://cdn.jsdelivr.net/npm/@gitlab/fonts@1.3.1/gitlab-mono/GitLabMono-Italic.woff2) format('woff2');
+}
 :root {
   color-scheme: light dark;
   --foreground: #3a383d;

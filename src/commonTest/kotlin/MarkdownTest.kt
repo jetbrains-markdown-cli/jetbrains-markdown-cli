@@ -531,6 +531,33 @@ class StyleVariableTest {
     }
 
     @Test
+    fun builtInStylesLoadTheirWebFonts() {
+        // Family of each style that systems may lack, and the file that gets it.
+        val fonts = mapOf(
+            "intellij" to listOf("Arimo Variable" to "arimo-latin-wght-normal.woff2", "JetBrains Mono" to "jetbrains-mono/JetBrainsMono.woff2"),
+            "github" to listOf("Noto Sans Variable" to "noto-sans-latin-wght-normal.woff2"),
+            "gitlab" to listOf("GitLab Sans" to "gitlab-sans/GitLabSans.woff2", "GitLab Mono" to "gitlab-mono/GitLabMono.woff2"),
+            "pandoc" to emptyList(),
+        )
+        for ((alias, families) in fonts) {
+            val css = style(html(text(alias)))
+            for ((family, file) in families) {
+                assertContains(css, "font-family: '$family';\n", message = alias)
+                assertContains(css, "$file) format('woff2');", message = alias)
+            }
+            // Only woff2 files from the CDN, which show text in the fallback font until they are there.
+            val sources = Regex("src: url\\((.*?)\\)").findAll(css).map { it.groupValues[1] }.toList()
+            assertEquals(families.isEmpty(), sources.isEmpty(), alias)
+            assertTrue(sources.all { it.startsWith("https://cdn.jsdelivr.net/npm/") && it.endsWith(".woff2") }, alias)
+            assertEquals(css.split("@font-face").size - 1, css.split("font-display: swap;").size - 1, alias)
+        }
+        // The fonts come after the ones that are on the system, and before the generic fallbacks.
+        assertContains(style(html(text("github"))), "\"Noto Sans\", \"Noto Sans Variable\", Helvetica")
+        assertContains(style(html(text("intellij"))), "freesans, 'Arimo Variable', sans-serif;")
+        assertContains(style(html(text("gitlab"))), "font-family: 'GitLab Sans', -apple-system")
+    }
+
+    @Test
     fun builtInStylesAreSelfContained() {
         for (alias in listOf("default", "intellij", "github", "gitlab", "pandoc")) {
             val css = style(html(text(alias)))

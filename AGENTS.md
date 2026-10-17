@@ -95,6 +95,13 @@ Intentionally not implemented, because they only serve the IDE's live preview: `
 `<span>`s in paragraphs, code-fence copy/run buttons, resolving relative links to `file:` URLs, scripts,
 and the Content-Security-Policy `<meta>`.
 
+Web fonts: the `intellij`, `github` and `gitlab` styles start with `@font-face` rules for `woff2` files on jsDelivr (pinned versions of
+`@gitlab/fonts` and the fontsource variable packages `noto-sans` and `arimo`; the Noto Sans and Arimo rules are fontsource's own
+`wght[-italic].css`, cut down to the latin, latin-ext, cyrillic and greek subsets). They must not shadow fonts that may be installed: the
+families `Noto Sans Variable` and `Arimo Variable` are listed *after* the system names in the stacks, `GitLab Sans`/`GitLab Mono` and
+`JetBrains Mono` are first because the original stacks have them first. Check with a headless Chromium and `document.fonts` that the
+files load (force the family with `!important`, as this machine may have the system fonts). Update the versions in the URLs together.
+
 Styles: the `intellij` style is the plugin's `default.css` (`core/resources/.../extensions/common/baseStyles/`) without
 the rules for IDE-only markup (octicon anchors, front matter header, alerts) plus the colours that
 `PreviewLAFThemeStyles` generates from the IDE theme, here fixed to the IntelliJ Light/Dark theme values

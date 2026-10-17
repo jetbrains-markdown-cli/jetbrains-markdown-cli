@@ -214,6 +214,27 @@ flowchart LR
     meta --> hl --> mm --> css --> scripts
 ```
 
+#### Web fonts
+
+The fonts of these styles are mostly not installed on a normal system, and browsers do not give a page access to all
+local fonts, so the built-in styles bring the ones they need as `@font-face` rules with links to `woff2` files on
+[jsDelivr](https://www.jsdelivr.com/) (pinned versions, all licensed under the OFL-1.1). A browser only fetches a file when
+the page needs it, and shows the text in the next font of the stack until it is there (`font-display: swap`).
+
+| Style | Web fonts | Where the font stack uses them |
+|-------|-----------|--------------------------------|
+| `gitlab` | GitLab Sans and GitLab Mono, from the [`@gitlab/fonts`](https://www.npmjs.com/package/@gitlab/fonts) package of GitLab | first, like on gitlab.com |
+| `github` | [Noto Sans](https://fontsource.org/fonts/noto-sans) (Latin, Latin Extended, Cyrillic and Greek) | after the system fonts (`-apple-system`, Segoe UI, an installed Noto Sans), so macOS and Windows keep theirs |
+| `intellij` | JetBrains Mono (from `@gitlab/fonts`, which carries the official files) for code, and [Arimo](https://fontsource.org/fonts/arimo), which has the metrics of Arial and Helvetica, as the last sans-serif font | JetBrains Mono first as in the IDE; Arimo only where neither Helvetica, Arial nor FreeSans exist |
+| `pandoc` | none | its stack is generic (`sans-serif`, `monospace`...) |
+
+Helvetica and Arial themselves are proprietary and not available as web fonts, which is why `intellij` falls back to Arimo.
+The code font of `github` (`ui-monospace`, SF Mono, Menlo, Consolas, Liberation Mono) stays the system's.
+
+So a page with one of these styles contacts the CDN when it is opened, unlike the pages with `css=none` or `css=pandoc`.
+Offline, or with the CDN blocked, nothing breaks: the page uses the fallback fonts. To avoid the requests, use your own
+stylesheet (`-V css=none -V css=my.css`).
+
 ### Syntax highlighting
 
 With `-V highlight` (or `highlight=true`; `false` is off, which is the default, and anything else is an error) the code
@@ -322,6 +343,8 @@ Missing:
 - **Scripts and the IDE's look**: no JavaScript and no Content-Security-Policy `<meta>`. The [styles](#styles) are
   made from the IDE's preview style but fixed to the IntelliJ Light and Dark themes (switched by the browser), not the
   colours of your editor colour scheme or font size, and there is no IDE setting for a custom stylesheet (use `css`).
+- **Fonts** of the `intellij`, `github` and `gitlab` styles are fetched from a CDN when the page is opened (see [web fonts](#web-fonts)),
+  and fall back to the system's fonts without network.
 - **Preview-only markup**: `md-src-pos` attributes, per-line `<span>`s in paragraphs, and the copy/run buttons on code fences.
 - **Relative links** are left as they are; the IDE resolves them to `file:` URLs.
 
