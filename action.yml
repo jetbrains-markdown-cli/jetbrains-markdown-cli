@@ -1,7 +1,5 @@
 name: Markdown to HTML (jetbrains-markdown-cli)
-description: >-
-  Converts Markdown files to HTML with jetbrains-markdown-cli, like the JetBrains IDEs do in their Markdown preview,
-  and leaves the tool on the PATH for later steps.
+description: "Convert Markdown to HTML like the JetBrains IDEs' preview, and keep jetbrains-markdown-cli on the PATH."
 author: jetbrains-markdown-cli
 branding:
   icon: file-text
