@@ -4,6 +4,7 @@
     ".": {
       "release-type": "simple",
       "package-name": "jetbrains-markdown-cli",
+      "include-component-in-tag": false,
       "extra-files": ["src/commonMain/kotlin/Version.kt"]
     }
   }
