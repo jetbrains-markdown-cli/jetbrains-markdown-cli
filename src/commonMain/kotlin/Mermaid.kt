@@ -80,9 +80,10 @@ private class Mermaiding(val script: String, val light: String, val dark: String
  * - `mermaid-url`: where Mermaid comes from, by default [DEFAULT_MERMAID_URL]. Either the directory that has `mermaid.min.js`
  *   (like the official `mermaid` package, cdnjs and unpkg), or the URL of the script itself, whatever it is called. It
  *   has to be the classic script, not the ES module.
- * - `mermaid-theme`: one of the themes of Mermaid (`default`, `neutral`, `dark`, `forest`, `base`). By default `default`.
+ * - `mermaid-theme`: one of the themes of Mermaid (`default`, `neutral`, `dark`, `forest`, `base`). By default `default`,
+ *   and `neutral` for the `gitlab` style of `css`, as GitLab draws its diagrams.
  * - `mermaid-theme-dark`: the same for `prefers-color-scheme: dark`. By default `dark` for the built-in styles of `css`
- *   that have a dark scheme (all but `pandoc`) as long as `mermaid-theme` is not set (then it is used for both), and
+ *   that have a dark scheme (all but `pandoc`; GitLab uses `dark` too) as long as `mermaid-theme` is not set (then it is used for both), and
  *   none otherwise because that page is not dark.
  *
  * @throws InvalidVariableException for a value of `mermaid` that is not a boolean or a theme Mermaid does not have
@@ -107,7 +108,7 @@ private fun mermaiding(context: TemplateContext): Mermaiding? {
     val builtIn = styleEntries(context).lastOrNull { it in BuiltInStyles.css }
     return Mermaiding(
         script = location.script,
-        light = explicitLight ?: "default",
+        light = explicitLight ?: if (builtIn == BuiltInStyles.GITLAB) "neutral" else "default",
         dark = explicitDark ?: if (explicitLight == null && builtIn in BuiltInStyles.darkAware) "dark" else null,
     )
 }

@@ -291,7 +291,8 @@ The default style follows the [style of the page](#styles), the last built-in on
 | `css` | Light | Dark |
 |-------|-------|------|
 | `default`, `intellij` | `idea` | `androidstudio` |
-| `github`, `gitlab` | `github` | `github-dark` |
+| `github` | `github` | `github-dark` |
+| `gitlab` | `github` | `base16/tomorrow-night` |
 | `pandoc` | `github` | none, as that page is not dark |
 | `none` or only your own stylesheets | `github` | none, as those pages are not dark |
 
@@ -335,10 +336,10 @@ jetbrains-markdown-cli -s -V mermaid -V mermaid-url=vendor/mermaid README.md   #
 | `mermaid-theme-dark` | The theme for `prefers-color-scheme: dark`; `mermaid-theme` (or `default`) is then the one for light |
 | `mermaid-url` | Where Mermaid comes from, by default `https://cdn.jsdelivr.net/npm/mermaid/dist` (the latest release of the official package; add `@11` or an exact version to the package name to pin it). Either a directory with `mermaid.min.js` (also what cdnjs and unpkg have, or a local copy), or the URL of the script, whatever it is called. It has to be the classic script (`mermaid.min.js`), not the ES module |
 
-Without `mermaid-theme`, the diagrams use `default` on a light page, and `dark` when the browser prefers a dark colour
-scheme and one of the built-in styles `default`, `intellij`, `github` or `gitlab` of `css` is used (those are light and dark, see
-[Styles](#styles)). With `css=pandoc`, `css=none` or only your own stylesheets the page is not known to be dark, so there
-is just `default`. Mermaid puts the theme into the SVG,
+Without `mermaid-theme`, the diagrams use `default` on a light page (`neutral` with `css=gitlab`, like on gitlab.com), and `dark`
+when the browser prefers a dark colour scheme and one of the built-in styles `default`, `intellij`, `github` or `gitlab` of
+`css` is used (those are light and dark, see [Styles](#styles)). With `css=pandoc`, `css=none` or only your own stylesheets the
+page is not known to be dark, so there is just `default`. Mermaid puts the theme into the SVG,
 so the diagrams are drawn again when the browser switches.
 
 The diagrams are `<div class="mermaid">`, not `<pre>`, so the box of code blocks does not apply to them. The

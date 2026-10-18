@@ -772,7 +772,8 @@ class HighlightVariableTest {
         assertEquals(listOf("idea", "androidstudio"), styles("css" to text("default")))
         assertEquals(listOf("idea", "androidstudio"), styles("css" to text("intellij")))
         assertEquals(listOf("github", "github-dark"), styles("css" to text("github")))
-        assertEquals(listOf("github", "github-dark"), styles("css" to text("gitlab")))
+        // GitLab's dark code theme has the palette of Tomorrow Night; its light one is closest to `github`.
+        assertEquals(listOf("github", "base16/tomorrow-night"), styles("css" to text("gitlab")))
         // The last built-in style wins the cascade, so it decides.
         assertEquals(listOf("github", "github-dark"), styles("css" to items("intellij", "github")))
         assertEquals(listOf("idea", "androidstudio"), styles("css" to items("github", "intellij", "none")))
@@ -980,7 +981,6 @@ class MermaidVariableTest {
         assertEquals(light, themes(html(on, "css" to text("default"))))
         assertEquals(light, themes(html(on, "css" to text("intellij"))))
         assertEquals(light, themes(html(on, "css" to text("github"))))
-        assertEquals(light, themes(html(on, "css" to text("gitlab"))))
         assertEquals(light, themes(html(on, "css" to items("my.css", "github"))))
         assertEquals(light, themes(html(on, "css" to items("github", "none"))))
         // Pandoc's page is light only: the last built-in style decides, like the cascade.
@@ -1004,6 +1004,14 @@ class MermaidVariableTest {
         assertEquals(listOf("\"forest\"", "\"dark\""), themes(html(on, "mermaid-theme" to text("forest"), "mermaid-theme-dark" to text("dark"))))
         assertEquals(listOf("\"default\"", "\"neutral\""), themes(html(on, "mermaid-theme-dark" to text("neutral"), "css" to text("none"))))
         assertEquals(listOf("\"default\"", "\"dark\""), themes(html(on, "mermaid-theme" to text(""))))
+    }
+
+    @Test
+    fun gitlabDrawsItsLightDiagramsNeutral() {
+        assertEquals(listOf("\"neutral\"", "\"dark\""), themes(html(on, "css" to text("gitlab"))))
+        assertEquals(listOf("\"neutral\"", "\"base\""), themes(html(on, "css" to text("gitlab"), "mermaid-theme-dark" to text("base"))))
+        assertEquals(listOf("\"forest\"", "null"), themes(html(on, "css" to text("gitlab"), "mermaid-theme" to text("forest"))))
+        assertEquals(listOf("\"default\"", "\"dark\""), themes(html(on, "css" to items("gitlab", "github"))))
     }
 
     @Test
