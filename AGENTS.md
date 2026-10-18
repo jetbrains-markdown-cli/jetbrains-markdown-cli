@@ -45,6 +45,7 @@ Where to look in the plugin (all under `plugins/markdown/core/src/org/intellij/p
 - `src/commonMain/kotlin/TemplateVariables.kt`: `TemplateValue`/`TemplateContext` (pandoc-style template variables) and the `-V` parsing.
 - `src/commonMain/kotlin/Metadata.kt`: YAML (via [snakeyaml-engine-kmp](https://github.com/krzema12/snakeyaml-engine-kmp)) to `TemplateValue`s, merging of metadata layers, and extracting the document's YAML metadata blocks.
 - `src/commonMain/kotlin/Settings.kt`: `Settings`, the options a defaults file can set; defaults files and the command line are layered with `Settings.then`.
+- `src/commonMain/kotlin/Version.kt`: `VERSION`, shown by `--version` and `--help`. The only place with the version: release-please rewrites the line annotated `x-release-please-version` (see `release-please-config.json`), so do not edit it by hand.
 - `src/commonMain/kotlin/MarkdownCli.kt`: the command line interface ([Clikt](https://github.com/ajalt/clikt)); options are declared
   here. Input/output (stdin, stdout, files) are injected so it can be tested without them.
   Input files and `-o` work like pandoc's (no files = stdin, no `-o` = stdout, `-` = stdin/stdout, several files are

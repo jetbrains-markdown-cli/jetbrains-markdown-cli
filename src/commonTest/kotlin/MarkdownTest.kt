@@ -1,4 +1,5 @@
 import com.github.ajalt.clikt.core.CliktError
+import com.github.ajalt.clikt.core.PrintMessage
 import com.github.ajalt.clikt.core.parse
 import com.github.ajalt.clikt.core.BadParameterValue
 import com.github.ajalt.clikt.core.UsageError
@@ -1225,6 +1226,21 @@ class MarkdownCliTest {
             writeFile = { path, text -> if (path.startsWith("/nowhere/")) false else { written[path] = text; true } },
         ).parse(args.toList())
         return stdout to written
+    }
+
+    @Test
+    fun versionOptionPrintsTheVersionAndExits() {
+        for (option in listOf("--version", "-v")) {
+            val exit = assertFailsWith<PrintMessage>(option) { run(option) }
+            assertEquals("jetbrains-markdown-cli $VERSION", exit.message)
+        }
+    }
+
+    @Test
+    fun helpShowsTheVersionAndTheVersionOption() {
+        val help = MarkdownCli(readStdin = { "" }).getFormattedHelp().orEmpty()
+        assertContains(help, "jetbrains-markdown-cli $VERSION")
+        assertContains(help, "--version")
     }
 
     @Test

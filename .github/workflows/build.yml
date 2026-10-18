@@ -78,6 +78,7 @@ jobs:
         if: matrix.smoke
         shell: bash
         run: |
+          [[ "$(build/bin/${{ matrix.binDir }}/releaseExecutable/${{ matrix.exe }} --version)" =~ ^jetbrains-markdown-cli\ [0-9]+\.[0-9]+\.[0-9]+[[:space:]]*$ ]]
           out=$(printf '# Hello\n\nsome *markdown*\n' | build/bin/${{ matrix.binDir }}/releaseExecutable/${{ matrix.exe }})
           echo "$out"
           [[ "$out" == *"<h1 id=\"hello\">Hello</h1>"* && "$out" == *"<em>markdown</em>"* ]]
@@ -142,6 +143,7 @@ jobs:
         run: |
           tar -xzf jetbrains-markdown-cli-linux-arm64.tar.gz
           test -s jetbrains-markdown-cli-linux-arm64/LICENSE && test -s jetbrains-markdown-cli-linux-arm64/THIRD-PARTY
+          [[ "$(jetbrains-markdown-cli-linux-arm64/jetbrains-markdown-cli --version)" =~ ^jetbrains-markdown-cli\ [0-9]+\.[0-9]+\.[0-9]+[[:space:]]*$ ]]
           out=$(printf '# Hello\n\nsome *markdown*\n' | jetbrains-markdown-cli-linux-arm64/jetbrains-markdown-cli)
           echo "$out"
           [[ "$out" == *"<h1 id=\"hello\">Hello</h1>"* && "$out" == *"<em>markdown</em>"* ]]

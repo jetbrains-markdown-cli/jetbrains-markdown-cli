@@ -8,6 +8,7 @@ import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.multiple
 import com.github.ajalt.clikt.parameters.options.option
+import com.github.ajalt.clikt.parameters.options.versionOption
 import com.github.ajalt.clikt.parameters.types.enum
 import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.clikt.parameters.types.restrictTo
@@ -27,7 +28,8 @@ class MarkdownCli(
     private val writeFile: (path: String, text: String) -> Boolean = { _, _ -> false },
 ) : CliktCommand(name = "jetbrains-markdown-cli") {
     override fun help(context: Context) =
-        "Convert Markdown files to HTML. Without input files, or for the file name `-`, Markdown is read from stdin; " +
+        "$commandName $VERSION\n\n" +
+            "Convert Markdown files to HTML. Without input files, or for the file name `-`, Markdown is read from stdin; " +
             "without `-o`, or for `-o -`, HTML is written to stdout."
 
     private val inputFiles by argument("INPUT", help = "Markdown files to convert, concatenated with blank lines between them. `-` is stdin.")
@@ -56,6 +58,10 @@ class MarkdownCli(
 
     private val defaultsFiles by option("-d", "--defaults", metavar = "FILE", help = "Read options from a YAML defaults file, like pandoc. Can be repeated, later files override earlier ones; the command line overrides them all.")
         .multiple()
+
+    init {
+        versionOption(VERSION, names = setOf("-v", "--version"), message = { "$commandName $it" })
+    }
 
     override fun run() {
         val commandLine = Settings(
