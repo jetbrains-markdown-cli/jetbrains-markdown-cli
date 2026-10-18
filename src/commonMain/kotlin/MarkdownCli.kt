@@ -49,6 +49,12 @@ class MarkdownCli(
     private val tocDepth by option("--toc-depth", metavar = "NUMBER", help = "Heading levels the table of contents covers (default: $DEFAULT_TOC_DEPTH).")
         .int().restrictTo(1..MAX_TOC_DEPTH)
 
+    private val rawHtml by option("--raw-html", help = "Pass HTML in the Markdown on to the output (default); the opposite of --no-raw-html.")
+        .flag()
+
+    private val noRawHtml by option("--no-raw-html", help = "Show HTML in the Markdown as text instead of passing it on, like pandoc's markdown-raw_html.")
+        .flag()
+
     private val variables by option("-V", "--variable", metavar = "KEY[=VAL]", help = "Set a template variable; without a value it is true. Can be repeated.")
         .convert { parseVariable(it) }
         .multiple()
@@ -69,6 +75,7 @@ class MarkdownCli(
             flavour = flavour,
             tableOfContents = if (tableOfContents) true else null,
             tocDepth = tocDepth,
+            rawHtml = if (noRawHtml) false else if (rawHtml) true else null,
             variables = variablesOf(variables),
             metadataFiles = metadataFiles,
             inputFiles = inputFiles,
@@ -86,6 +93,7 @@ class MarkdownCli(
                 settings.metadata,
                 settings.tableOfContents ?: false,
                 settings.tocDepth ?: DEFAULT_TOC_DEPTH,
+                settings.rawHtml ?: true,
             )
         } catch (e: InvalidMetadataException) {
             throw CliktError("Error in the input: ${e.message}")

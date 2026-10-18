@@ -18,23 +18,23 @@
  * optional. The first four are Markdown inlines, the `abstract` is Markdown blocks, and `abstract-title` (default
  * "Abstract") is plain text.
  */
-internal fun titleBlock(context: TemplateContext, flavour: Flavour): String {
+internal fun titleBlock(context: TemplateContext, dialect: Dialect): String {
     val title = context["title"]?.takeIf { it.asText().isNotBlank() } ?: return ""
     val lines = ArrayList<String>()
-    lines += """      <h1 class="title">${inlineHtml(title, flavour)}</h1>"""
+    lines += """      <h1 class="title">${inlineHtml(title, dialect)}</h1>"""
     context["subtitle"]?.takeIf { it.asText().isNotBlank() }?.let {
-        lines += """      <p class="subtitle">${inlineHtml(it, flavour)}</p>"""
+        lines += """      <p class="subtitle">${inlineHtml(it, dialect)}</p>"""
     }
-    for (author in authors(context)) lines += """      <p class="author">${inlineHtml(author, flavour)}</p>"""
+    for (author in authors(context)) lines += """      <p class="author">${inlineHtml(author, dialect)}</p>"""
     context["date"]?.takeIf { it.asText().isNotBlank() }?.let {
-        lines += """      <p class="date">${inlineHtml(it, flavour)}</p>"""
+        lines += """      <p class="date">${inlineHtml(it, dialect)}</p>"""
     }
     context["abstract"]?.takeIf { it.asText().isNotBlank() }?.let {
         val abstractTitle = context["abstract-title"]?.asText()?.takeIf { t -> t.isNotBlank() } ?: "Abstract"
         lines += """      <div class="abstract">"""
         lines += """        <div class="abstract-title">${abstractTitle.escapeHtml()}</div>"""
         // The renderer puts every block on its own line, indented below the <div>.
-        lines += render(normalizeLineEndings(it.asText()), flavour, standalone = false, baseLevel = 4)
+        lines += render(normalizeLineEndings(it.asText()), dialect, standalone = false, baseLevel = 4)
             .body.trim('\n')
         lines += "      </div>"
     }
@@ -49,12 +49,12 @@ internal fun withTitleBlock(body: String, block: String): String = when {
 }
 
 /** The `<meta>` lines for the `<head>`: the `author`s and the `date`, as plain text. */
-internal fun metaTags(context: TemplateContext, flavour: Flavour): List<String> {
+internal fun metaTags(context: TemplateContext, dialect: Dialect): List<String> {
     val tags = ArrayList<String>()
     for (author in authors(context)) {
-        tags += """    <meta name="author" content="${attribute(author, flavour)}">"""
+        tags += """    <meta name="author" content="${attribute(author, dialect)}">"""
     }
-    context["date"]?.let { attribute(it, flavour) }?.takeIf { it.isNotEmpty() }?.let {
+    context["date"]?.let { attribute(it, dialect) }?.takeIf { it.isNotEmpty() }?.let {
         tags += """    <meta name="dcterms.date" content="$it">"""
     }
     return tags
@@ -72,15 +72,15 @@ private fun authors(context: TemplateContext): List<TemplateValue> {
         .filter { it.asText().isNotBlank() }
 }
 
-private fun attribute(value: TemplateValue, flavour: Flavour) = plainText(value, flavour).replace("\"", "&quot;")
+private fun attribute(value: TemplateValue, dialect: Dialect) = plainText(value, dialect).replace("\"", "&quot;")
 
 /**
  * The Markdown [value] as inline HTML. Block level Markdown (several paragraphs, a heading, ...)
  * cannot be inserted into a `<p>` or `<h1>`, so it is reduced to plain text.
  */
-private fun inlineHtml(value: TemplateValue, flavour: Flavour): String {
-    val html = render(normalizeLineEndings(value.asText()), flavour, standalone = false).body.trim()
+private fun inlineHtml(value: TemplateValue, dialect: Dialect): String {
+    val html = render(normalizeLineEndings(value.asText()), dialect, standalone = false).body.trim()
     val inner = html.removePrefix("<p>").removeSuffix("</p>")
     val singleParagraph = html.startsWith("<p>") && html.endsWith("</p>") && "<p>" !in inner
-    return if (singleParagraph) inner else plainText(value, flavour)
+    return if (singleParagraph) inner else plainText(value, dialect)
 }

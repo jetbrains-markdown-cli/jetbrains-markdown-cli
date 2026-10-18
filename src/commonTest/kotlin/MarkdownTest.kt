@@ -37,6 +37,34 @@ class MarkdownTest {
     }
 
     @Test
+    fun rawHtmlIsPassedOnUnlessTurnedOff() {
+        val src = "a <b>x</b> and <style>\n\n<div class=\"c\">\n*not md* & more\n</div>\n"
+        val raw = markdownToHtml(src)
+        assertContains(raw, "<b>x</b>")
+        assertContains(raw, "<div class=\"c\">")
+        for (flavour in Flavour.entries) {
+            val text = markdownToHtml(src, flavour, rawHtml = false)
+            assertContains(text, "<p>a &lt;b&gt;x&lt;/b&gt; and &lt;style&gt;</p>", message = flavour.name)
+            // A block of HTML is the text of a paragraph, and is not Markdown.
+            assertContains(text, "<p>&lt;div class=&quot;c&quot;&gt;\n*not md* &amp; more\n&lt;/div&gt;</p>", message = flavour.name)
+            assertFalse("<b>" in text || "<div" in text || "<style>" in text, text)
+        }
+    }
+
+    @Test
+    fun rawHtmlOffAlsoAppliesToTheValuesOfVariables() {
+        val html = markdownToHtml(
+            "text\n", standalone = true, rawHtml = false,
+            variables = mapOf("title" to TemplateValue.Text("T <i>x</i>"), "subtitle" to TemplateValue.Text("S <u>y</u>"),
+                "abstract" to TemplateValue.Text("A <script>1</script>")),
+        )
+        assertContains(html, "<title>T &lt;i&gt;x&lt;/i&gt;</title>")
+        assertContains(html, "<p class=\"subtitle\">S &lt;u&gt;y&lt;/u&gt;</p>")
+        assertContains(html, "&lt;script&gt;1&lt;/script&gt;")
+        assertFalse("<script>1" in html || "<u>" in html || "<i>" in html, html)
+    }
+
+    @Test
     fun everyFlavourGeneratesHeadingIds() {
         for (flavour in Flavour.entries) {
             assertContains(markdownToHtml("# Hello\n\nWorld\n-----\n", flavour), "<h1 id=\"hello\">Hello</h1>")
@@ -1357,6 +1385,19 @@ class MarkdownCliTest {
     }
 
     @Test
+    fun rawHtmlOptions() {
+        val input = "a <b>x</b>\n"
+        assertContains(run(input = input), "<p>a <b>x</b></p>")
+        assertContains(run("--raw-html", input = input), "<p>a <b>x</b></p>")
+        assertContains(run("--no-raw-html", input = input), "<p>a &lt;b&gt;x&lt;/b&gt;</p>")
+        // A defaults file can turn it off, the command line turns it on again.
+        val files = mapOf("off.yaml" to "raw-html: false\n", "bad.yaml" to "raw-html: maybe\n")
+        assertContains(run("-d", "off", input = input, files = files), "<p>a &lt;b&gt;x&lt;/b&gt;</p>")
+        assertContains(run("-d", "off", "--raw-html", input = input, files = files), "<p>a <b>x</b></p>")
+        assertContains(assertFailsWith<CliktError> { run("-d", "bad", files = files) }.message.orEmpty(), "raw-html")
+    }
+
+    @Test
     fun rejectsUnknownFlavour() {
         assertFailsWith<BadParameterValue> { run("--flavour", "bogus") }
     }
@@ -1452,6 +1493,36 @@ class MarkdownCliTest {
         assertContains(html, "highlight.min.js")
         assertContains(html, "mermaid.min.js")
         assertFalse("Based on github-markdown-css" in runWithFiles("-d", "docs/defaults", "-V", "css=none", files = files).second.getValue("README.html"))
+    }
+
+    @Test
+    fun buildsAPageLikeTheChangelogOfThisRepository() {
+        val files = mapOf(
+            "CHANGELOG.md" to "# Changelog\n\n## [1.1.0](https://example.com/compare) (2026-02-01)\n\n### Features\n\n* add [a thing](https://example.com/c) ([abc](https://example.com/abc))\n\n" +
+                "## [1.0.0](https://example.com/compare) (2026-01-01)\n\n### \u26A0 BREAKING CHANGES\n\n* one more <style> element, and no <body>; the headings are like <h1 id=\"hello\">.\n",
+            "docs/changelog.yaml" to "input-files: [CHANGELOG.md]\noutput-file: CHANGELOG.html\nstandalone: true\ntoc: true\ntoc-depth: 2\nflavour: gfm\nraw-html: false\n" +
+                "metadata:\n  lang: en\nvariables:\n  css: gitlab\n",
+        )
+        val (stdout, written) = runWithFiles("-d", "docs/changelog", files = files)
+        assertEquals("", stdout)
+        assertEquals(setOf("CHANGELOG.html"), written.keys)
+        val html = written.getValue("CHANGELOG.html")
+        assertContains(html, "<html lang=\"en\">")
+        // No title variable: the title is the first heading, and there is no title block.
+        assertContains(html, "<title>Changelog</title>")
+        assertFalse("<header id=\"title-block-header\">" in html)
+        assertContains(html, "<h1 id=\"changelog\">Changelog</h1>")
+        // The table of contents goes down to the versions (depth 2), not to "Features" (level 3), and drops the link of the heading.
+        assertContains(html, "<nav id=\"TOC\" role=\"doc-toc\">")
+        assertContains(html, "id=\"toc-110-2026-02-01\">1.1.0 (2026-02-01)</a>")
+        assertContains(html, "id=\"toc-100-2026-01-01\">1.0.0 (2026-01-01)</a>")
+        assertFalse("id=\"toc-features\"" in html)
+        assertContains(html, "<h3 id=\"features\">Features</h3>")
+        // HTML in the text of an entry is shown, and does not swallow the rest of the page (a <style> would).
+        assertContains(html, "one more &lt;style&gt; element, and no &lt;body&gt;; the headings are like &lt;h1 id=&quot;hello&quot;&gt;.")
+        assertFalse("<style> element" in html || "<body>;" in html || "<h1 id=\"hello\">" in html, html)
+        assertContains(html, "GitLab")
+        assertFalse("highlight.min.js" in html || "mermaid.min.js" in html)
     }
 
     @Test

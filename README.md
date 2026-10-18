@@ -68,8 +68,9 @@ The two `<style>`s (abbreviated here) are the [`common` rules and the default st
 | `--toc`, `--table-of-contents` | Add a [table of contents](#table-of-contents) of the headings after the title block (with `--standalone`, as in pandoc) |
 | `--toc-depth=NUMBER`           | The heading levels the table of contents covers, 1 to 6 (default 3) |
 | `-f`, `--flavour=...`          | Markdown flavour: `gfm` (default, GitHub Flavored Markdown like IntelliJ's Markdown plugin), `commonmark` (plain CommonMark) or `space` (JetBrains Space) |
+| `--raw-html`, `--no-raw-html`  | HTML in the Markdown (blocks and tags in the text, also in the values of variables) is passed on to the output, which is what Markdown does and the default, or with `--no-raw-html` shown as text, like pandoc's `-f markdown-raw_html`: HTML blocks become paragraphs, and a `<style>` in a sentence cannot hide the rest of the page. Use it for text that only mentions tags, such as a changelog, and for untrusted Markdown |
 | `-V`, `--variable=KEY[=VAL]`   | Set a template variable like `pandoc --variable`: without a value it is `true`, repeating a key makes a list. Can be repeated |
-| `-d`, `--defaults=FILE`        | Read options from a YAML defaults file like `pandoc --defaults` (`input-files`, `output-file`, `standalone`, `flavour`, `toc` or `table-of-contents`, `toc-depth`, `variables`, `metadata`, `metadata-files`; other keys are ignored with a warning). `FILE.yaml` is found as `FILE`. Can be repeated, later files override earlier ones, the command line overrides them all (input files on the command line replace those of defaults files, like in pandoc) |
+| `-d`, `--defaults=FILE`        | Read options from a YAML defaults file like `pandoc --defaults` (`input-files`, `output-file`, `standalone`, `flavour`, `toc` or `table-of-contents`, `toc-depth`, `raw-html`, `variables`, `metadata`, `metadata-files`; other keys are ignored with a warning). `FILE.yaml` is found as `FILE`. Can be repeated, later files override earlier ones, the command line overrides them all (input files on the command line replace those of defaults files, like in pandoc) |
 | `--metadata-file=FILE`         | Read metadata (a YAML mapping) from `FILE`. Can be repeated, later files override earlier ones |
 | `-v`, `--version`              | Show the version and exit; `--help` shows it too |
 | `-h`, `--help`                 | Show the help and exit |
@@ -389,7 +390,7 @@ pandoc is much bigger, this tool only converts Markdown to HTML:
   `--mathjax`/`--katex`, `--filter`/`--lua-filter`, `--citeproc`, `--file-scope`, `--resource-path` or `--self-contained`.
   Keys of a [defaults file](#options) that are not supported are ignored with a warning.
 - **Other formats**: Markdown is the only input and HTML the only output; no `-f`/`-t` selection of formats and no
-  `--extension` switches (`-f` here selects the JetBrains Markdown flavour).
+  `--extension` switches (`-f` here selects the JetBrains Markdown flavour; only `raw_html` has its own option, `--no-raw-html`).
 - **Markdown dialect**: the parser is JetBrains/markdown (CommonMark/GFM), not pandoc's Markdown. pandoc extensions such
   as footnotes, definition lists, `smart` typography, citations, attributes (`{#id .class}`), fenced divs and
   `tex_math_dollars` are not supported.
@@ -456,7 +457,8 @@ jobs:
 
 The same two steps, with a defaults file, run in this repository's own release workflow (`.github/workflows/build.yml`):
 `README.pdf` is [attached to every release](../../releases) next to the binaries, made from the page of
-[Building this page](#building-this-page).
+[Building this page](#building-this-page). `CHANGELOG.pdf` is attached as well, made the same way but with the
+[container image](#container-image) instead of the action.
 
 | Input | Meaning |
 |-------|---------|
@@ -474,6 +476,74 @@ The outputs are `output-file` (as given) and `version` (the version that ran). `
 release moves; use `@v1.2.3` or a commit to pin the action itself, and `version` to pin the binary, which is otherwise the
 latest release no matter which version of the action runs. Untrusted Markdown needs the precautions
 of [`highlight`](#syntax-highlighting) and [`mermaid`](#diagrams) as well.
+
+## Container image
+
+For GitLab CI, and anywhere else that runs containers, there is an image with the binary on the `PATH`:
+`ghcr.io/jetbrains-markdown-cli/jetbrains-markdown-cli`, for `linux/amd64` and `linux/arm64`, based on Debian (the binary needs
+glibc, and GitLab CI needs a shell in the image). Every [release](../../releases) is published as `1.2.3`, `1.2`, `1` and `latest`:
+pin the exact version (or the digest) for reproducible builds. The image only converts, it has no browser: for a PDF, see below.
+
+It has no entrypoint, so the command is part of the call, and it runs as root with `/work` as the working directory:
+
+```sh
+echo '# Hello *world*' | docker run --rm -i ghcr.io/jetbrains-markdown-cli/jetbrains-markdown-cli:1 jetbrains-markdown-cli
+docker run --rm -v "$PWD:/work" --user "$(id -u):$(id -g)" ghcr.io/jetbrains-markdown-cli/jetbrains-markdown-cli:1 \
+  jetbrains-markdown-cli -s --toc -V css=github -o README.html README.md
+```
+
+The second call writes `README.html` as you, not as root. With rootless `podman`, root in the container already is you; to use `--user`
+there as well, add `--userns=keep-id`, and on SELinux hosts `:Z` to the volume (`-v "$PWD:/work:Z"`).
+
+### GitLab CI
+
+An `image:` with the tool needs no installation step. A pipeline that converts the README and prints the page to a PDF has two
+jobs, because the PDF needs a browser, which is a different image: the first job's `public/` is passed on as an artifact.
+
+```yaml
+stages: [convert, pdf]
+
+html:
+  stage: convert
+  image: ghcr.io/jetbrains-markdown-cli/jetbrains-markdown-cli:1
+  script:
+    - mkdir -p public # like pandoc, the tool does not create directories
+    - jetbrains-markdown-cli --standalone --toc -V css=gitlab -V highlight -V mermaid -o public/index.html README.md
+  artifacts:
+    paths: [public]
+
+pdf:
+  stage: pdf
+  image: docker.io/library/debian:stable-slim
+  needs: [html]
+  script:
+    - apt-get update -qq
+    - apt-get install -y -qq --no-install-recommends chromium fonts-liberation
+    # --no-sandbox, as the job runs as root in a container. The virtual time budget gives highlight.js and Mermaid, which the
+    # page loads from a CDN, time to run before the page is printed.
+    - >
+      chromium --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --no-pdf-header-footer
+      --virtual-time-budget=30000 --print-to-pdf=public/README.pdf "file://$PWD/public/index.html"
+  artifacts:
+    paths: [public/README.pdf]
+```
+
+Things to know:
+
+- The image has no `ENTRYPOINT`, so `image:` needs nothing more than its name (with an entrypoint, every job would need
+  `entrypoint: [""]`). The jobs of GitLab's docker executor run as the image's user, which is root here, so the tool can write to the
+  project directory.
+- The `pdf` job installs Chromium into a plain Debian image. Any other image with Chrome or Chromium works, as long as it runs as
+  root (or can write to the project directory) and has a shell; the command is `google-chrome` in the Chrome packages.
+- Like with the [action](#github-action), the page loads highlight.js, Mermaid and the web fonts of the styles from a CDN, so the
+  runner needs network access. For a runner without it, use your own copies (`highlight-url`, `mermaid-url`, a `css` of your own).
+- Untrusted Markdown needs the precautions of [`highlight`](#syntax-highlighting) and [`mermaid`](#diagrams) here as well.
+- This repository's release workflow uses the image the same way: [`CHANGELOG.pdf`](../../releases) is made from
+  [`docs/changelog.yaml`](docs/changelog.yaml), a defaults file like the one of [this page](#building-this-page), with `docker run`
+  and Chrome on the runner.
+
+The image contains the Debian packages of its base image next to the binary, under their own licenses
+(`/usr/share/doc/*/copyright`); `LICENSE` and `THIRD-PARTY` of the binary are in `/usr/share/doc/jetbrains-markdown-cli/`.
 
 ## Licenses
 
@@ -496,6 +566,8 @@ for every platform the Kotlin/Native toolchain and JetBrains/markdown support:
 | macOS   | amd64, arm64  |
 | Windows | amd64         |
 
+The Linux binaries are also in a [container image](#container-image) (amd64 and arm64).
+
 Other platforms (Linux arm/i386/loong64/ppc64le/s390x/riscv64, Windows arm64) are not supported:
 JetBrains/markdown publishes no Kotlin/Native artifacts for them and Kotlin/Native has no (stable) target for them.
 
@@ -507,3 +579,14 @@ JetBrains/markdown publishes no Kotlin/Native artifacts for them and Kotlin/Nati
 ```
 
 The binary ends up in `build/bin/<target>/releaseExecutable/`. macOS targets need a macOS host.
+
+The [container image](#container-image) is built from the binaries, not from the sources: put the Linux binary and the `LICENSE` and
+`THIRD-PARTY` files of the repository in a directory named like the release archives (the build context), then build it with
+`podman`/`buildah` or Docker; the [`Containerfile`](Containerfile) works with both:
+
+```sh
+d=image-context/jetbrains-markdown-cli-linux-amd64   # linux-arm64 for the other platform
+mkdir -p "$d" && cp LICENSE THIRD-PARTY "$d"
+cp build/bin/linuxX64/releaseExecutable/jetbrains-markdown-cli.kexe "$d/jetbrains-markdown-cli"
+podman build -t jetbrains-markdown-cli -f Containerfile image-context   # or: docker build ...
+```

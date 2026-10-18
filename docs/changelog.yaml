@@ -1,0 +1,17 @@
+# Builds CHANGELOG.html from CHANGELOG.md with this tool: jetbrains-markdown-cli -d docs/changelog
+# Run it from the repository root, the paths are relative to the working directory. The release workflow does it with the
+# container image (the README page, docs/defaults.yaml, is built with the GitHub Action) and prints the page to CHANGELOG.pdf.
+input-files:
+  - CHANGELOG.md
+output-file: CHANGELOG.html
+standalone: true
+toc: true
+toc-depth: 2
+flavour: gfm
+# The commit messages in a changelog mention tags like <style> in their text: show them instead of making them part of the page.
+raw-html: false
+# The title is the first heading of the changelog. No highlight and mermaid: it has no code to highlight or diagrams.
+metadata:
+  lang: en
+variables:
+  css: gitlab

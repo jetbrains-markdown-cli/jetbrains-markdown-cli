@@ -35,7 +35,12 @@ Where to look in the plugin (all under `plugins/markdown/core/src/org/intellij/p
 - `action.yml`: the composite GitHub Action for other repositories: downloads the release binary of the runner's platform (`version` input, default
   latest), puts it on the `PATH` and runs it with the inputs mapped to options (inputs go through `env:`, never interpolated into the scripts).
   Keep its inputs in sync with the README's *GitHub Action* section, and the asset names with the `Package` step of `build.yml`.
+- `Containerfile`: the container image (Debian slim + the linux binary, no `ENTRYPOINT`, root, so that GitLab CI can use it with a plain `image:`).
+  It is built from the release archives extracted into a context directory (`image-context/`, git-ignored), not from the sources, and is
+  written for buildah/podman *and* Docker BuildKit: no `# syntax=`, no `RUN` (the arm64 image is built without emulation), no `HEALTHCHECK`.
+  Keep it that way; CI builds it with both.
 - `src/commonMain/kotlin/Markdown.kt`: `markdownToHtml()`, the `Flavour` enum (commonmark/gfm/space, default = GFM, like the plugin's `MarkdownDefaultFlavour`), the flavour wrapper adding anchored headings and, with `standalone`, the document skeleton.
+- `src/commonMain/kotlin/RawHtml.kt`: `Dialect` (flavour + `rawHtml`, passed to every `render`) and the providers that show HTML blocks and tags as text with `--no-raw-html`/`raw-html: false` (pandoc's `markdown-raw_html`); `docs/changelog.yaml` needs it, as commit messages in `CHANGELOG.md` mention tags such as `<style>`.
 - `src/commonMain/kotlin/HeadingAnchors.kt`: port of the plugin's heading anchor logic.
 - `src/commonMain/kotlin/TitleBlock.kt`: the title block at the start of the `<body>` and the `<meta>` tags, like pandoc's HTML template.
 - `src/commonMain/kotlin/TableOfContents.kt`: the `<nav id="TOC">` after the title block; the entries come from `--toc`, the `toc` variable only switches the nav, like in pandoc's template.
@@ -56,7 +61,8 @@ Where to look in the plugin (all under `plugins/markdown/core/src/org/intellij/p
 - `src/nativeMain/kotlin/Main.kt`: reads stdin and files, writes files, and runs `MarkdownCli`.
 - `src/commonTest/kotlin/MarkdownTest.kt`: tests (run on the host target).
 - `docs/defaults.yaml`, `docs/metadata.yaml`: the defaults and metadata file that build `README.html` from the README, see [Eat your own dogfood](#eat-your-own-dogfood).
-- `.github/workflows/build.yml`: builds all targets, smoke-tests them, and keeps the release PR up to date with release-please. The `merge-release` job merges that PR once all jobs are green and dispatches the workflow again (a merge with `GITHUB_TOKEN` starts no run, `workflow_dispatch` is the exception), so every `feat`/`fix` is released automatically; the dispatched run makes the release and the `release` job attaches the binaries (archives with `LICENSE` and `THIRD-PARTY`, which is also a release asset) to the release release-please created. The `test-action` job runs `action.yml` on all three OSes against the latest release; the `release` job also moves the major tag (`v1`) that `uses: ...@v1` resolves to, and builds the README as HTML with the action (`docs/defaults`) and as PDF with Chrome, attached as `README.pdf`. Everything is in this one workflow because tags and releases made with `GITHUB_TOKEN` do not trigger other workflows.
+- `docs/changelog.yaml`: the defaults file that builds `CHANGELOG.html` (printed to `CHANGELOG.pdf` on release) from `CHANGELOG.md`, with the container image.
+- `.github/workflows/build.yml`: builds all targets, smoke-tests them, and keeps the release PR up to date with release-please. The `merge-release` job merges that PR once all jobs are green and dispatches the workflow again (a merge with `GITHUB_TOKEN` starts no run, `workflow_dispatch` is the exception), so every `feat`/`fix` is released automatically; the dispatched run makes the release and the `release` job attaches the binaries (archives with `LICENSE` and `THIRD-PARTY`, which is also a release asset) to the release release-please created. The `test-action` job runs `action.yml` on all three OSes against the latest release; the `test-image` job builds the `Containerfile` from the linux artifacts with Docker, podman and buildah and smoke-tests the images (including building the README and changelog pages inside them: keep it in sync with the smoke tests of the binaries); the `image` job (releases only) pushes it to `ghcr.io/jetbrains-markdown-cli/jetbrains-markdown-cli` as `X.Y.Z`, `X.Y`, `X` and `latest`; the `release` job also moves the major tag (`v1`) that `uses: ...@v1` resolves to, and builds the README as HTML with the action (`docs/defaults`) and as PDF with Chrome, attached as `README.pdf`, and the changelog the same way but with the pulled image (`docs/changelog`), attached as `CHANGELOG.pdf`. The ghcr package has to be public for GitLab CI and everybody else (its visibility cannot be set from a workflow: do it once in the package settings; the `image` job warns if an anonymous pull fails, the changelog step logs in, so a private package does not fail a release). `merge-release` waits for `test-image` as well. Everything is in this one workflow because tags and releases made with `GITHUB_TOKEN` do not trigger other workflows.
 - `release-please-config.json`, `.release-please-manifest.json`: release-please (type `simple`, tags `vX.Y.Z`): the version and `CHANGELOG.md` come from the Conventional Commits on `main`, and `Version.kt` is its only extra file. The first release is forced to 1.0.0 by a `Release-As: 1.0.0` footer. Never edit the manifest or `CHANGELOG.md` by hand.
 - `.github/dependabot.yml`: weekly updates of the GitHub Actions and the Gradle dependencies/wrapper (prefixes `ci` and `build(deps)`). After a library update check `THIRD-PARTY`; the pinned font URLs are not covered.
 - `THIRD-PARTY`: the notices and license texts that the release archives must carry.
@@ -69,6 +75,14 @@ All logic lives in `commonMain`; keep `nativeMain` to I/O only.
 ./gradlew linuxX64Test                   # tests (host target; use the matching target on other OSes)
 ./gradlew linkReleaseExecutableLinuxX64  # binary: build/bin/linuxX64/releaseExecutable/jetbrains-markdown-cli.kexe
 ./build/bin/linuxX64/releaseExecutable/jetbrains-markdown-cli.kexe < README.md
+```
+
+The image (needs podman or Docker; build the binary first, the layout of the context is in the README's *Building* section):
+
+```sh
+d=image-context/jetbrains-markdown-cli-linux-amd64 && mkdir -p $d && cp LICENSE THIRD-PARTY $d
+cp build/bin/linuxX64/releaseExecutable/jetbrains-markdown-cli.kexe $d/jetbrains-markdown-cli
+podman build -t jetbrains-markdown-cli -f Containerfile image-context   # also: buildah build --platform linux/arm64 ... (needs the linux-arm64 directory)
 ```
 
 Targets are limited to those JetBrains/markdown publishes Kotlin/Native artifacts for: linuxX64, linuxArm64,
@@ -164,11 +178,15 @@ its own defaults file and metadata file, and no other converter. The pieces: the
   tool, not something to hide in the example. Keep the README renderable on GitHub and in the IDE preview as well.
 - The page is written to the repository root, so relative links of the README (`LICENSE`, `THIRD-PARTY`, ...) keep working;
   that is why `/README.html` is in `.gitignore` and not committed.
-- `buildsAPageLikeTheReadmeOfThisRepository` in `MarkdownTest.kt` mirrors this setup in small (the tests cannot read the real files):
-  adjust it when the files in `docs/` change. CI does not build the page yet.
+- The same for `CHANGELOG.md` and `docs/changelog.yaml` (built with the container image, in the `test-image` job and in the `release` job, which
+  prints it to `CHANGELOG.pdf`): it uses a different style than the README (`gitlab`) and the `metadata:` key of a defaults file instead of a metadata file.
+- `buildsAPageLikeTheReadmeOfThisRepository` and `buildsAPageLikeTheChangelogOfThisRepository` in `MarkdownTest.kt` mirror this setup in small
+  (the tests cannot read the real files): adjust them when the files in `docs/` change. The `test-image` job builds both pages inside the image.
 
 ## Conventions
 
+- The container image documentation (README, *Container image*) uses only what is implemented and what was run: its GitLab CI example was
+  run on gitlab.com (a temporary project). Re-run it, e.g. with `glab` and a temporary private project, when the example changes.
 - Keep the README's usage example in sync with the actual output, and its *Limitations* section with what is implemented
   (e.g. when another template variable or option gets supported).
 - Add or adjust a test in `MarkdownTest.kt` for every output change.

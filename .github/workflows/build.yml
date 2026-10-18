@@ -122,6 +122,8 @@ jobs:
           [[ "$out" == *'<code class="language-mermaid">'* && "$out" == *'mermaid/dist/mermaid.min.js" defer></script>'* ]]
           out=$(printf '# Hello\n' | build/bin/${{ matrix.binDir }}/releaseExecutable/${{ matrix.exe }} --standalone)
           [[ "$out" != *"highlight.min.js"* && "$out" != *"mermaid.min.js"* ]]
+          out=$(printf 'a <b>x</b>\n' | build/bin/${{ matrix.binDir }}/releaseExecutable/${{ matrix.exe }} --no-raw-html)
+          [[ "$out" == *'<p>a &lt;b&gt;x&lt;/b&gt;</p>'* ]]
           printf '# One\n' > one.md
           printf 'two\n' | build/bin/${{ matrix.binDir }}/releaseExecutable/${{ matrix.exe }} one.md - -o out.html
           [[ "$(cat out.html)" == *"<h1 id=\"one\">One</h1>"* && "$(cat out.html)" == *"<p>two</p>"* ]]
@@ -187,6 +189,8 @@ jobs:
           [[ "$out" == *'<code class="language-mermaid">'* && "$out" == *'mermaid/dist/mermaid.min.js" defer></script>'* ]]
           out=$(printf '# Hello\n' | jetbrains-markdown-cli-linux-arm64/jetbrains-markdown-cli --standalone)
           [[ "$out" != *"highlight.min.js"* && "$out" != *"mermaid.min.js"* ]]
+          out=$(printf 'a <b>x</b>\n' | jetbrains-markdown-cli-linux-arm64/jetbrains-markdown-cli --no-raw-html)
+          [[ "$out" == *'<p>a &lt;b&gt;x&lt;/b&gt;</p>'* ]]
           printf '# One\n' > one.md
           printf 'two\n' | jetbrains-markdown-cli-linux-arm64/jetbrains-markdown-cli one.md - -o out.html
           [[ "$(cat out.html)" == *"<h1 id=\"one\">One</h1>"* && "$(cat out.html)" == *"<p>two</p>"* ]]
@@ -259,7 +263,7 @@ jobs:
   merge-release:
     name: Merge release PR
     if: github.event_name == 'push' && needs.release-please.outputs.release_created != 'true'
-    needs: [release-please, build, test-linux-arm64, test-action]
+    needs: [release-please, build, test-linux-arm64, test-action, test-image]
     runs-on: ubuntu-latest
     permissions:
       actions: write
@@ -283,13 +287,161 @@ jobs:
           gh pr merge "$pr" --squash --repo "$GITHUB_REPOSITORY"
           gh workflow run build.yml --ref main --repo "$GITHUB_REPOSITORY"
 
+  # The container image (Containerfile) is built from the linux binaries that were just built, with Docker (BuildKit) and
+  # with podman and buildah, which the runner has as well, and smoke-tested with both. It converts the README page of
+  # this repository inside the container, like docs/defaults does on a developer's machine.
+  test-image:
+    name: test container image
+    needs: [build, test-linux-arm64]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: jetbrains-markdown-cli-linux-*
+          path: dist
+          merge-multiple: true
+
+      # The build context: the release archives of the two Linux platforms, extracted.
+      - name: Extract the archives into the build context
+        run: |
+          mkdir image-context
+          for archive in dist/*.tar.gz; do tar -xzf "$archive" -C image-context; done
+          ls image-context/*
+
+      # The default docker driver cannot build for several platforms.
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Build with Docker (BuildKit) and with podman and buildah
+        run: |
+          # Both platforms must resolve; only the amd64 image can be run on this runner.
+          docker buildx build --platform linux/amd64,linux/arm64 -f Containerfile image-context
+          docker buildx build --platform linux/amd64 --load -t jmc-test:docker -f Containerfile image-context
+          podman build --platform linux/amd64 -t jmc-test:podman -f Containerfile image-context
+          buildah build --platform linux/arm64 -f Containerfile image-context
+
+      - name: Smoke test
+        run: |
+          for tool in docker podman; do
+            echo "::group::$tool"
+            image=jmc-test:$tool
+            # Like in the README: as the user of the runner, which podman needs --userns=keep-id for.
+            user=(--user "$(id -u):$(id -g)")
+            [[ $tool == docker ]] || user=(--userns=keep-id "${user[@]}")
+            [[ "$($tool run --rm $image jetbrains-markdown-cli --version)" =~ ^jetbrains-markdown-cli\ [0-9]+\.[0-9]+\.[0-9]+[[:space:]]*$ ]]
+            out=$(printf '# Hello\n\nsome *markdown*\n' | $tool run --rm -i $image jetbrains-markdown-cli)
+            echo "$out"
+            [[ "$out" == *"<h1 id=\"hello\">Hello</h1>"* && "$out" == *"<em>markdown</em>"* ]]
+            # GitLab CI runs the script of a job with a shell in the image, and there is no entrypoint to get in its way.
+            [[ "$($tool run --rm $image sh -c 'echo shell')" == shell ]]
+            [[ "$($tool inspect --format '{{.Config.Entrypoint}}' $image)" == "[]" ]]
+            $tool run --rm $image sh -c 'test -s /usr/share/doc/jetbrains-markdown-cli/LICENSE && test -s /usr/share/doc/jetbrains-markdown-cli/THIRD-PARTY'
+            # The README page, as docs/defaults builds it, with the project mounted.
+            rm -f README.html
+            $tool run --rm -v "$PWD:/work" -w /work "${user[@]}" $image jetbrains-markdown-cli -d docs/defaults
+            out=$(cat README.html)
+            [[ "$out" == "<!DOCTYPE html>"* && "$out" == *"<title>jetbrains-markdown-cli</title>"* ]]
+            [[ "$out" == *'id="building-this-page"'* && "$out" == *'<nav id="TOC" role="doc-toc">'* ]]
+            # The same for the changelog page, which the release workflow prints to PDF.
+            rm -f CHANGELOG.html
+            $tool run --rm -v "$PWD:/work" -w /work "${user[@]}" $image jetbrains-markdown-cli -d docs/changelog
+            out=$(cat CHANGELOG.html)
+            [[ "$out" == *"<title>Changelog</title>"* && "$out" == *'id="toc-'* && "$out" != *"<style> element"* ]]
+            echo "::endgroup::"
+          done
+
+  # Publishes the image to the GitHub container registry, for the platforms of the Linux binaries. The binaries are the
+  # ones that go on the release: the release job (and its CHANGELOG.pdf) comes after this one.
+  image:
+    name: Publish container image
+    if: needs.release-please.outputs.release_created == 'true'
+    needs: [release-please, build, test-linux-arm64, test-image]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      TAG: ${{ needs.release-please.outputs.tag_name }}
+    steps:
+      # A dispatched run builds the tip of main, which could have moved on since the release PR was merged.
+      - name: Check that the binaries are built from the released commit
+        env:
+          RELEASE_SHA: ${{ needs.release-please.outputs.sha }}
+        run: '[ "$RELEASE_SHA" = "$GITHUB_SHA" ]'
+
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: jetbrains-markdown-cli-linux-*
+          path: dist
+          merge-multiple: true
+
+      - name: Extract the archives into the build context
+        run: |
+          mkdir image-context
+          for archive in dist/*.tar.gz; do tar -xzf "$archive" -C image-context; done
+
+      # v1.2.3 is the image 1.2.3, 1.2, 1 and latest, like the major version tag of the action.
+      - name: Work out the image tags
+        id: tags
+        run: |
+          image=ghcr.io/${GITHUB_REPOSITORY,,}
+          version=${TAG#v}
+          {
+            echo "tags<<EOF"
+            echo "$image:$version"
+            echo "$image:${version%.*}"
+            echo "$image:${version%%.*}"
+            echo "$image:latest"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: image-context
+          file: Containerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          # Without attestations the image index has just the two platforms.
+          provenance: false
+          sbom: false
+          build-args: |
+            VERSION=${{ steps.tags.outputs.version }}
+            REVISION=${{ github.sha }}
+          tags: ${{ steps.tags.outputs.tags }}
+
+      # A new package starts private (its visibility cannot be set from a workflow): GitLab CI and everybody else pull the image
+      # without logging in, so say so loudly, but do not fail a release over it.
+      - name: Check that the image can be pulled without logging in
+        env:
+          VERSION: ${{ steps.tags.outputs.version }}
+        run: |
+          export DOCKER_CONFIG=$(mktemp -d) # no credentials
+          if docker pull "ghcr.io/${GITHUB_REPOSITORY,,}:$VERSION" > /dev/null; then
+            echo "The image can be pulled anonymously."
+          else
+            echo "::warning title=The container image is not public::Set the visibility of the package ghcr.io/${GITHUB_REPOSITORY,,} to public (package settings), or nobody can use it without logging in."
+          fi
+
   release:
     name: Release
     if: needs.release-please.outputs.release_created == 'true'
-    needs: [release-please, build, test-linux-arm64]
+    needs: [release-please, build, test-linux-arm64, image]
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      packages: read
     env:
       GH_TOKEN: ${{ github.token }}
       TAG: ${{ needs.release-please.outputs.tag_name }}
@@ -336,3 +488,22 @@ jobs:
 
       - name: Attach the PDF to the GitHub release
         run: gh release upload "$TAG" README.pdf --clobber --repo "$GITHUB_REPOSITORY"
+
+      # The changelog, as HTML and PDF, with the container image that was just published, instead of the action.
+      # CHANGELOG.md already has this release, as the release PR was merged. It logs in to pull, so that a package that is
+      # not public yet (see the image job) does not fail the release.
+      - name: Convert the changelog to HTML with the container image
+        run: |
+          image=ghcr.io/${GITHUB_REPOSITORY,,}:${TAG#v}
+          echo "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker run --rm -v "$PWD:/work" -w /work --user "$(id -u):$(id -g)" "$image" jetbrains-markdown-cli -d docs/changelog
+          test -s CHANGELOG.html
+
+      - name: Print the changelog to PDF
+        run: |
+          google-chrome --headless --no-sandbox --disable-gpu --no-pdf-header-footer \
+            --virtual-time-budget=30000 --print-to-pdf=CHANGELOG.pdf "file://$PWD/CHANGELOG.html"
+          test -s CHANGELOG.pdf
+
+      - name: Attach the changelog PDF to the GitHub release
+        run: gh release upload "$TAG" CHANGELOG.pdf --clobber --repo "$GITHUB_REPOSITORY"

@@ -10,6 +10,8 @@ internal class Settings(
     /** `--toc`: the table of contents is generated. */
     val tableOfContents: Boolean? = null,
     val tocDepth: Int? = null,
+    /** `--raw-html`/`--no-raw-html`: HTML in the Markdown is part of the output (the default) or shown as text. */
+    val rawHtml: Boolean? = null,
     val variables: TemplateContext = emptyMap(),
     /** Metadata that the document's own metadata cannot override, like pandoc's `metadata:` defaults and `-M`. */
     val metadata: TemplateContext = emptyMap(),
@@ -25,6 +27,7 @@ internal class Settings(
         flavour = later.flavour ?: flavour,
         tableOfContents = later.tableOfContents ?: tableOfContents,
         tocDepth = later.tocDepth ?: tocDepth,
+        rawHtml = later.rawHtml ?: rawHtml,
         variables = variables + later.variables,
         metadata = metadata + later.metadata,
         metadataFiles = metadataFiles + later.metadataFiles,
@@ -47,6 +50,7 @@ internal fun parseSettings(yaml: String, ignored: (key: String) -> Unit = {}): S
                 "flavour" -> Settings(flavour = (value as? TemplateValue.Text)?.let(::flavourNamed) ?: invalid(key, "a text"))
                 "toc", "table-of-contents" -> Settings(tableOfContents = (value as? TemplateValue.Flag)?.value ?: invalid(key, "a boolean"))
                 "toc-depth" -> Settings(tocDepth = value.asTocDepth(key))
+                "raw-html" -> Settings(rawHtml = (value as? TemplateValue.Flag)?.value ?: invalid(key, "a boolean"))
                 "variables" -> Settings(variables = (value as? TemplateValue.Fields)?.values ?: invalid(key, "a mapping"))
                 "metadata" -> Settings(metadata = (value as? TemplateValue.Fields)?.values ?: invalid(key, "a mapping"))
                 "metadata-file", "metadata-files" -> Settings(metadataFiles = value.asFileList(key))

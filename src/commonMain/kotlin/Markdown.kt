@@ -31,9 +31,11 @@ enum class Flavour(val cliName: String, internal val create: () -> MarkdownFlavo
  * The chosen flavour, plus the heading `id`s the IntelliJ Markdown plugin generates.
  *
  * Unless [standalone], the `<body>` the library wraps the document in is dropped, leaving just the content.
+ * Unless [rawHtml], HTML in the text is shown as text.
  */
 private class CliFlavour(
     private val standalone: Boolean,
+    private val rawHtml: Boolean,
     private val delegate: MarkdownFlavourDescriptor,
 ) : MarkdownFlavourDescriptor by delegate {
     override fun createHtmlGeneratingProviders(linkMap: LinkMap, baseURI: URI?): Map<IElementType, GeneratingProvider> {
@@ -47,6 +49,10 @@ private class CliFlavour(
         providers[MarkdownElementTypes.SETEXT_1] = AnchoredHeadingProvider("h1")
         providers[MarkdownElementTypes.SETEXT_2] = AnchoredHeadingProvider("h2")
         if (!standalone) providers.remove(MarkdownElementTypes.MARKDOWN_FILE)
+        if (!rawHtml) {
+            providers[MarkdownElementTypes.HTML_BLOCK] = EscapedHtmlBlockProvider
+            providers[MarkdownTokenTypes.HTML_TAG] = EscapedInlineHtmlProvider
+        }
         return providers
     }
 }
@@ -71,6 +77,10 @@ private class CliFlavour(
  * after the title block, and `toc` and `toc-title` are variables of it, see [tableOfContents]. It is only part of a
  * [standalone] document, like in pandoc.
  *
+ * Unless [rawHtml], HTML blocks and tags in the Markdown (also in the values of the variables) are shown as text instead of
+ * being part of the page, like pandoc's `markdown-raw_html`; the `<style>` in a sentence of a changelog would otherwise
+ * hide the rest of it.
+ *
  * @throws InvalidMetadataException if a YAML metadata block in [markdown] is not valid YAML
  * @throws InvalidVariableException if a variable has a value it cannot have, see [highlightStyleTags] and [mermaidStyleTags]
  * @throws IllegalArgumentException if [tocDepth] is not between 1 and 6
@@ -84,18 +94,20 @@ fun markdownToHtml(
     metadataOverrides: TemplateContext = emptyMap(),
     tableOfContents: Boolean = false,
     tocDepth: Int = DEFAULT_TOC_DEPTH,
+    rawHtml: Boolean = true,
 ): String {
     require(tocDepth in 1..MAX_TOC_DEPTH) { "the table of contents depth must be between 1 and $MAX_TOC_DEPTH" }
     val (src, documentMetadata) = extractMetadataBlocks(normalizeLineEndings(markdown))
-    val rendered = render(src, flavour, standalone)
+    val dialect = Dialect(flavour, rawHtml)
+    val rendered = render(src, dialect, standalone)
     // Every block starts with a line break; the first one is not wanted at the start of the output.
     if (!standalone) return rendered.body.trimStart('\n').let { if (it.isEmpty()) it else it + "\n" }
     val context = mergeMetadata(listOf(metadata, documentMetadata, metadataOverrides, variables))
-    val title = context["title"]?.let { plainText(it, flavour) }?.takeIf { it.isNotEmpty() }
+    val title = context["title"]?.let { plainText(it, dialect) }?.takeIf { it.isNotEmpty() }
         ?: firstHeadingText(rendered.tree, src).escapeHtml()
     val toc = tableOfContents(context, if (tableOfContents) tocEntries(rendered, src, tocDepth) else null)
     val lang = context["lang"]?.asText()?.trim()?.takeIf { it.isNotEmpty() }
-    val head = listOf("    <meta charset=\"UTF-8\">") + metaTags(context, flavour) +
+    val head = listOf("    <meta charset=\"UTF-8\">") + metaTags(context, dialect) +
         "    <title>$title</title>" + highlightStyleTags(context) + mermaidStyleTags(context) + styleTags(context) +
             highlightScriptTags(context) + mermaidScriptTags(context)
     return """
@@ -103,7 +115,7 @@ fun markdownToHtml(
         |<html${if (lang == null) "" else " lang=\"${lang.escapeHtml()}\""}>
         |  <head>
         |${head.joinToString("\n")}
-        |  </head>${withTitleBlock(rendered.body, titleBlock(context, flavour) + toc)}
+        |  </head>${withTitleBlock(rendered.body, titleBlock(context, dialect) + toc)}
         |</html>
         |
     """.trimMargin()
@@ -116,11 +128,11 @@ internal class Rendered(val tree: ASTNode, val body: String, val providers: Map<
 
 internal fun render(
     src: String,
-    flavour: Flavour,
+    dialect: Dialect,
     standalone: Boolean,
     baseLevel: Int = if (standalone) 1 else 0,
 ): Rendered {
-    val descriptor = CliFlavour(standalone, flavour.create())
+    val descriptor = CliFlavour(standalone, dialect.rawHtml, dialect.flavour.create())
     val tree = MarkdownParser(descriptor, cancellationToken = CancellationToken.NonCancellable)
         .buildMarkdownTreeFromString(src as CharSequence)
     val renderer = PrettyTagRenderer(
@@ -135,8 +147,8 @@ internal fun render(
  * The HTML-escaped plain text of a title or other metadata value, which is Markdown like in pandoc: `My *title*` is `My title`.
  * The value is escaped unlike in pandoc, where `--variable` values are inserted into the template as they are.
  */
-internal fun plainText(value: TemplateValue, flavour: Flavour): String {
-    val html = render(normalizeLineEndings(value.asText()), flavour, standalone = false).body
+internal fun plainText(value: TemplateValue, dialect: Dialect): String {
+    val html = render(normalizeLineEndings(value.asText()), dialect, standalone = false).body
     return html.replace(Regex("<[^>]*>"), "").replace(Regex("\\s+"), " ").trim()
 }
 
