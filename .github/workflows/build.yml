@@ -190,13 +190,73 @@ jobs:
           printf 'two\n' | jetbrains-markdown-cli-linux-arm64/jetbrains-markdown-cli one.md - -o out.html
           [[ "$(cat out.html)" == *"<h1 id=\"one\">One</h1>"* && "$(cat out.html)" == *"<p>two</p>"* ]]
 
+  # The action (action.yml) downloads the binaries of the latest release, so this runs it against what is released,
+  # not against the commit under test, on every platform it supports.
+  test-action:
+    name: test action (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Write some Markdown
+        shell: bash
+        run: |
+          printf '# Hello\n\nsome *markdown*\n' > one.md
+          printf '## Two\n' > two.md
+
+      - uses: ./
+        id: convert
+        with:
+          input-files: |
+            one.md
+            two.md
+          output-file: out/out.html
+          toc: true
+          variables: |
+            title=From the action
+            css=github
+
+      - name: Check the output
+        shell: bash
+        env:
+          OUTPUT_FILE: ${{ steps.convert.outputs.output-file }}
+          VERSION: ${{ steps.convert.outputs.version }}
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]
+          [[ "$OUTPUT_FILE" == out/out.html ]]
+          out=$(cat "$OUTPUT_FILE")
+          [[ "$out" == "<!DOCTYPE html>"* && "$out" == *"<title>From the action</title>"* ]]
+          [[ "$out" == *'<h1 id="hello">Hello</h1>'* && "$out" == *'<a href="#two" id="toc-two">Two</a>'* ]]
+          # The binary stays on the PATH for later steps.
+          [[ "$(jetbrains-markdown-cli --version)" == "jetbrains-markdown-cli $VERSION"* ]]
+
+      - name: Write a defaults file
+        shell: bash
+        run: |
+          printf 'input-files: [one.md]\noutput-file: from-defaults.html\nstandalone: false\n' > defaults.yaml
+
+      - uses: ./
+        with:
+          defaults: defaults
+
+      - name: Check the output of the defaults file
+        shell: bash
+        run: '[[ "$(cat from-defaults.html)" == *"<em>markdown</em>"* ]]'
+
   release:
     name: Release
     if: needs.release-please.outputs.release_created == 'true'
-    needs: [release-please, build, test-linux-arm64]
+    needs: [release-please, build, test-linux-arm64, test-action]
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ needs.release-please.outputs.tag_name }}
     steps:
       - uses: actions/checkout@v7
 
@@ -206,7 +266,31 @@ jobs:
           merge-multiple: true
 
       - name: Attach the binaries to the GitHub release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ needs.release-please.outputs.tag_name }}
         run: gh release upload "$TAG" dist/* THIRD-PARTY --repo "$GITHUB_REPOSITORY"
+
+      # Moves the major version tag (v1) to this release, so that `uses: ...@v1` gets it. Pushed with GITHUB_TOKEN,
+      # it does not start another workflow run.
+      - name: Move the major version tag
+        run: |
+          major=${TAG%%.*}
+          git tag --force "$major" HEAD
+          git push --force origin "refs/tags/$major"
+
+      # The README of this repository, as HTML and PDF, with the action itself, from the release that was just made.
+      # This is also the example of the README: convert with the action, then print the page with Chrome.
+      - name: Convert the README to HTML
+        uses: ./
+        with:
+          defaults: docs/defaults
+          version: ${{ needs.release-please.outputs.tag_name }}
+
+      # Chrome is on the runner. The page loads highlight.js and Mermaid from a CDN, which the virtual time budget
+      # gives time to run before the page is printed.
+      - name: Print the HTML to PDF
+        run: |
+          google-chrome --headless --no-sandbox --disable-gpu --no-pdf-header-footer \
+            --virtual-time-budget=30000 --print-to-pdf=README.pdf "file://$PWD/README.html"
+          test -s README.pdf
+
+      - name: Attach the PDF to the GitHub release
+        run: gh release upload "$TAG" README.pdf --clobber --repo "$GITHUB_REPOSITORY"
