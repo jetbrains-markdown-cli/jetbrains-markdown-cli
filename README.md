@@ -37,6 +37,7 @@ echo '# Hello *world*' | jetbrains-markdown-cli --standalone
 #     <meta charset="UTF-8">
 #     <title>Hello *world*</title>
 #     <style>…</style>
+#     <style>…</style>
 #   </head>
 #   <body>
 #     <h1 id="hello-world">Hello <em>world</em></h1>
@@ -45,7 +46,7 @@ echo '# Hello *world*' | jetbrains-markdown-cli --standalone
 ```
 
 The `<title>` is the `title` [template variable](#template-variables), or else the text of the first heading.
-The `<style>` (abbreviated here) is the [default style](#styles), which `-V css=none` leaves out.
+The two `<style>`s (abbreviated here) are the [`common` rules and the default style](#styles), which `-V css=none` leaves out.
 
 ## Options
 
@@ -128,6 +129,7 @@ printf -- '---\ntitle: My document\nauthor: [Ann, Bob]\ndate: 2026-01-02\n---\n'
 #     <meta name="dcterms.date" content="2026-01-02">
 #     <title>My document</title>
 #     <style>…</style>
+#     <style>…</style>
 #   </head>
 #   <body>
 #     <header id="title-block-header">
@@ -180,7 +182,8 @@ The `css` variable is a list like in pandoc's template, but besides the URLs of 
 
 | Name       | Style |
 |------------|-------|
-| `none`     | No style at all |
+| `none`     | No style at all, not even `common`: it turns off what would be added on its own |
+| `common`   | Base rules that fit under any style: for printing, no page break inside table rows, images, code blocks, list items and quotes, none right after a heading, at least 3 lines of a paragraph on a page, and long lines of code wrap instead of being cut off; and images and SVGs never wider than the page. No colours, fonts or sizes. It is added in front of every `css` list on its own, see below |
 | `default`  | The style used without `css`; the same as `intellij` for now |
 | `intellij` | The style of the IntelliJ Markdown preview: its `default.css` with the colours of the IDE's light and dark themes (picked by the browser's `prefers-color-scheme`, not by an IDE setting) |
 | `github`   | GitHub's look, based on [github-markdown-css](https://github.com/sindresorhus/github-markdown-css), light and dark as well |
@@ -191,25 +194,37 @@ The `css` variable is a list like in pandoc's template, but besides the URLs of 
 printf '# Hello\n' | jetbrains-markdown-cli -s -V css=github            # the GitHub style
 printf '# Hello\n' | jetbrains-markdown-cli -s -V css=gitlab            # the GitLab style
 printf '# Hello\n' | jetbrains-markdown-cli -s -V css=pandoc            # the style of pandoc's own pages
-printf '# Hello\n' | jetbrains-markdown-cli -s -V css=none              # no style
+printf '# Hello\n' | jetbrains-markdown-cli -s -V css=none              # no style at all
+printf '# Hello\n' | jetbrains-markdown-cli -s -V css=common            # only the base rules
 printf '# Hello\n' | jetbrains-markdown-cli -s -V css=github -V css=my.css   # GitHub's, then yours, which can override it
+printf '# Hello\n' | jetbrains-markdown-cli -s -V css=my.css               # the base rules, then yours
 printf '# Hello\n' | jetbrains-markdown-cli -s -V css=none -V css=my.css     # only yours
+printf '# Hello\n' | jetbrains-markdown-cli -s -V css=github -V css=common   # common after GitHub's, where you want it
 ```
 
 The names are exact (`GitHub` or `./github` are file names). Styles come in the order of the list, so later ones
 override earlier ones. A `css` without any value stands for the `default` style, `none` is the way to turn it off.
 Styles are only added with `--standalone`.
 
+The `common` style is always first, as if the list began with `common` (`css=github` is `css=common, css=github`, and
+`css=my.css` is `css=common, css=my.css`), so the built-in styles and yours can override it. It is not added if the list
+has `none` anywhere (`css=none, css=my.css` is only yours) or has `common` itself, which then stays where you put it.
+`css=common` alone is just these rules, without the default style. Like the other built-in styles, `common` is
+a `<style>` element.
+
+The wrapping of code in print is the one rule that the built-in styles would override with equal specificity, so its
+selectors are `html pre` and `html pre code`: a selector of yours with a class or id (`.post pre`) wins over it.
+
 The `<head>` is put together in this order, so what comes later overrides what comes before. The
 [highlight.js](#syntax-highlighting) and [Mermaid](#diagrams) parts are only there with `-V highlight` and `-V mermaid`;
-their default look follows the last built-in style of `css`:
+their default look follows the last built-in style of `css` (`common` does not count, it has no look):
 
 ```mermaid
 flowchart LR
     meta["#lt;meta#gt; tags and #lt;title#gt;"]
     hl["highlight.js #lt;link#gt;s and box rules<br>style follows the last built-in style"]
     mm["#lt;style#gt; of the diagrams<br>theme follows the last built-in style"]
-    css["the css entries in order:<br>built-in styles as #lt;style#gt;, others as #lt;link#gt;"]
+    css["the css entries in order, common first:<br>built-in styles as #lt;style#gt;, others as #lt;link#gt;"]
     scripts["#lt;script#gt;s: highlight.js, then Mermaid"]
     meta --> hl --> mm --> css --> scripts
 ```

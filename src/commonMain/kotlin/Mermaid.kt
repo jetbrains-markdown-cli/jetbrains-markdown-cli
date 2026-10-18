@@ -11,6 +11,12 @@ private val MERMAID_CSS = listOf(
     "  text-align: center;",
     "  overflow-x: auto;",
     "}",
+    "",
+    "@media print {",
+    "  div.mermaid {",
+    "    break-inside: avoid;",
+    "  }",
+    "}",
 )
 
 /**
@@ -83,7 +89,7 @@ private class Mermaiding(val script: String, val light: String, val dark: String
  */
 internal fun mermaidStyleTags(context: TemplateContext): List<String> {
     mermaiding(context) ?: return emptyList()
-    return listOf("    <style>") + MERMAID_CSS.map { "      $it" } + "    </style>"
+    return listOf("    <style>") + MERMAID_CSS.map { if (it.isEmpty()) it else "      $it" } + "    </style>"
 }
 
 /** The `<script>`s that load and run Mermaid, if `mermaid` is set, see [mermaidStyleTags]. */

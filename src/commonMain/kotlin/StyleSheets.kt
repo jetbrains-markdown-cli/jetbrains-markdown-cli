@@ -87,6 +87,43 @@
  * THE SOFTWARE.
  */
 
+/**
+ * The base rules of the `common` style, see [BuiltInStyles.COMMON]. They are original, and neutral: no colours, fonts or
+ * sizes, so they fit under any style and under the stylesheets of the user. They come first, so a style that sets the
+ * same property for the same element wins. The exception is the wrapping of code in print (paper does not scroll, so long
+ * lines would be cut off): the built-in styles set `white-space: pre` on `pre` or `pre code`, hence the `html` in front of
+ * those selectors, which makes them more specific than the styles' but still less than anything with a class or id.
+ */
+internal const val COMMON_CSS = """
+img, svg {
+  max-width: 100%;
+}
+
+img {
+  height: auto;
+}
+
+@media print {
+  tr, img, figure, pre, li, blockquote {
+    break-inside: avoid;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    break-after: avoid;
+  }
+
+  p {
+    orphans: 3;
+    widows: 3;
+  }
+
+  html pre, html pre code {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+}
+"""
+
 /** The title block ([titleBlock]) is pandoc's markup, not the IDE's or GitHub's, so the IntelliJ, GitHub and GitLab styles share its rules (the pandoc style has pandoc's own). */
 private const val TITLE_BLOCK_CSS = """
 header#title-block-header {

@@ -7,7 +7,14 @@ internal object BuiltInStyles {
     const val GITLAB = "gitlab"
     const val PANDOC = "pandoc"
 
-    /** The CSS of each alias that stands for a stylesheet (`none` is none). */
+    /**
+     * The base rules (print layout, images) that every `css` list gets in front unless it has `none` or `common`
+     * itself. Not one of the page styles in [css]: it has no look of its own, so it does not count as "the built-in
+     * style of the page" for the colours of highlighting and diagrams.
+     */
+    const val COMMON = "common"
+
+    /** The CSS of each alias that stands for a page style (`none` and [COMMON] are not in it). */
     val css: Map<String, String> = mapOf(
         DEFAULT to INTELLIJ_CSS,
         INTELLIJ to INTELLIJ_CSS,
@@ -26,21 +33,28 @@ internal object BuiltInStyles {
  * entry is the URL of a stylesheet, which becomes `<link rel="stylesheet" href="...">` like in pandoc's template.
  *
  * Without any entry the `default` style is used; `none` is how to get no style at all.
+ *
+ * The `common` style comes first, in front of all other entries (so they can override it), unless the list has `none`
+ * or `common` itself: `none` turns it off together with the default style (`css=none, css=my.css` is only `my.css`),
+ * and an explicit `common` is where the list wants it.
  */
 internal fun styleTags(context: TemplateContext): List<String> {
-    return styleEntries(context).flatMap { entry ->
+    val entries = styleEntries(context)
+    val withCommon = if (BuiltInStyles.NONE in entries || BuiltInStyles.COMMON in entries) entries else listOf(BuiltInStyles.COMMON) + entries
+    return withCommon.flatMap { entry ->
         when (entry) {
             BuiltInStyles.NONE -> emptyList()
-            in BuiltInStyles.css -> {
-                val css = BuiltInStyles.css.getValue(entry).trim('\n').lines()
-                listOf("    <style>") + css.map { if (it.isEmpty()) it else "      $it" } + "    </style>"
-            }
+            BuiltInStyles.COMMON -> styleElement(COMMON_CSS)
+            in BuiltInStyles.css -> styleElement(BuiltInStyles.css.getValue(entry))
             else -> listOf("""    <link rel="stylesheet" href="${entry.escapeHtml()}">""")
         }
     }
 }
 
-/** The entries of the `css` variable, or the `default` style if there are none. */
+private fun styleElement(css: String): List<String> =
+    listOf("    <style>") + css.trim('\n').lines().map { if (it.isEmpty()) it else "      $it" } + "    </style>"
+
+/** The entries of the `css` variable, or the `default` style if there are none (without the implicit `common`, see [styleTags]). */
 internal fun styleEntries(context: TemplateContext): List<String> =
     (context["css"]?.let(::cssEntries) ?: emptyList()).ifEmpty { listOf(BuiltInStyles.DEFAULT) }
 

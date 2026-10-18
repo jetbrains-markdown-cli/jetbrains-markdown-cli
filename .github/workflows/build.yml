@@ -93,6 +93,8 @@ jobs:
           [[ "$out" == *'<nav id="TOC" role="doc-toc">'* && "$out" == *'<a href="#two" id="toc-two">Two</a>'* ]]
           out=$(printf '# Hello\n' | build/bin/${{ matrix.binDir }}/releaseExecutable/${{ matrix.exe }} --standalone)
           [[ "$out" == *"<style>"* ]]
+          out=$(printf '# Hello\n' | build/bin/${{ matrix.binDir }}/releaseExecutable/${{ matrix.exe }} --standalone -V css=my.css)
+          [[ "$out" == *'break-inside: avoid;'* && "$out" == *'<link rel="stylesheet" href="my.css">'* && "$out" != *'max-width: 980px'* ]]
           out=$(printf '# Hello\n' | build/bin/${{ matrix.binDir }}/releaseExecutable/${{ matrix.exe }} --standalone -V css=none -V css=my.css)
           [[ "$out" != *"<style>"* && "$out" == *'<link rel="stylesheet" href="my.css">'* ]]
           out=$(printf '# Hello\n\n```kotlin\nval x = 1\n```\n' | build/bin/${{ matrix.binDir }}/releaseExecutable/${{ matrix.exe }} --standalone -V highlight)
@@ -155,6 +157,8 @@ jobs:
           [[ "$out" == *'<nav id="TOC" role="doc-toc">'* && "$out" == *'<a href="#two" id="toc-two">Two</a>'* ]]
           out=$(printf '# Hello\n' | jetbrains-markdown-cli-linux-arm64/jetbrains-markdown-cli --standalone)
           [[ "$out" == *"<style>"* ]]
+          out=$(printf '# Hello\n' | jetbrains-markdown-cli-linux-arm64/jetbrains-markdown-cli --standalone -V css=my.css)
+          [[ "$out" == *'break-inside: avoid;'* && "$out" == *'<link rel="stylesheet" href="my.css">'* && "$out" != *'max-width: 980px'* ]]
           out=$(printf '# Hello\n' | jetbrains-markdown-cli-linux-arm64/jetbrains-markdown-cli --standalone -V css=none -V css=my.css)
           [[ "$out" != *"<style>"* && "$out" == *'<link rel="stylesheet" href="my.css">'* ]]
           out=$(printf '# Hello\n\n```kotlin\nval x = 1\n```\n' | jetbrains-markdown-cli-linux-arm64/jetbrains-markdown-cli --standalone -V highlight)

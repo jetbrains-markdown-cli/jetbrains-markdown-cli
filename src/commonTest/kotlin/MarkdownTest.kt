@@ -460,7 +460,8 @@ class StyleVariableTest {
     private fun html(css: TemplateValue? = null, markdown: String = "# Heading\n") =
         markdownToHtml(markdown, standalone = true, variables = if (css == null) emptyMap() else mapOf("css" to css))
 
-    private fun style(document: String) = document.substringAfter("<style>", "").substringBefore("</style>")
+    /** The last `<style>`, which is the page style (the one before it is `common`). */
+    private fun style(document: String) = document.substringAfterLast("<style>", "").substringBefore("</style>")
 
     @Test
     fun defaultStyleIsTheIntelliJOne() {
@@ -575,8 +576,9 @@ class StyleVariableTest {
 
     @Test
     fun otherValuesAreLinkedStylesheets() {
-        assertContains(html(text("style.css")), "    <title>Heading</title>\n    <link rel=\"stylesheet\" href=\"style.css\">\n  </head>")
-        assertFalse("<style" in html(text("style.css")))
+        assertContains(html(text("style.css")), "    </style>\n    <link rel=\"stylesheet\" href=\"style.css\">\n  </head>")
+        assertEquals(1, Regex("<style").findAll(html(text("style.css"))).count()) // `common`, not the default style
+        assertFalse("body {" in html(text("style.css")))
         assertContains(html(text("https://example.com/a.css?x=1&y=\"2\"")), "href=\"https://example.com/a.css?x=1&amp;y=&quot;2&quot;\"")
         assertContains(html(text("  padded.css ")), "href=\"padded.css\"")
     }
@@ -593,6 +595,53 @@ class StyleVariableTest {
         val order = Regex("<style>|href=\"([^\"]+)\"").findAll(document).map { it.groupValues[1].ifEmpty { "style" } }.toList()
         assertEquals(listOf("style", "a.css", "b.css"), order)
         assertContains(document, "max-width: 980px;")
+    }
+
+    private fun styleOrder(document: String) =
+        Regex("<style>|href=\"([^\"]+)\"").findAll(document).map { it.groupValues[1].ifEmpty { "style" } }.toList()
+
+    @Test
+    fun commonComesFirstWithEveryStyle() {
+        for (css in listOf(null, text("github"), text("pandoc"), text("my.css"), items("github", "my.css"))) {
+            val document = html(css)
+            assertContains(document.substringBefore("</style>"), "break-inside: avoid;", message = "$css")
+        }
+        assertEquals(listOf("style", "style"), styleOrder(html()))
+        assertEquals(listOf("style", "style"), styleOrder(html(text("github"))))
+        assertEquals(listOf("style", "my.css"), styleOrder(html(text("my.css"))))
+        assertEquals(listOf("style", "style", "a.css", "b.css"), styleOrder(html(items("github", "a.css", "b.css"))))
+    }
+
+    @Test
+    fun commonHasPrintRulesAndResponsiveImages() {
+        val css = html(text("my.css")).substringAfter("<style>").substringBefore("</style>")
+        assertContains(css, "break-inside: avoid;")
+        assertContains(css, "break-after: avoid;")
+        assertContains(css, "orphans: 3;")
+        assertContains(css, "html pre, html pre code {\n          white-space: pre-wrap;")
+        assertContains(css, "img {\n        height: auto;")
+        assertFalse("color" in css || "font" in css, css)
+    }
+
+    @Test
+    fun noneTurnsCommonOff() {
+        assertEquals(emptyList(), styleOrder(html(text("none"))))
+        assertEquals(listOf("my.css"), styleOrder(html(items("none", "my.css"))))
+        // Anywhere in the list, like it turns the default style off.
+        assertEquals(listOf("style", "my.css"), styleOrder(html(items("github", "none", "my.css"))))
+        assertFalse("break-inside" in html(items("none", "my.css")))
+    }
+
+    @Test
+    fun explicitCommonIsNotAddedTwiceAndKeepsItsPlace() {
+        assertEquals(listOf("style"), styleOrder(html(text("common"))))
+        assertEquals(listOf("style", "my.css"), styleOrder(html(items("none", "common", "my.css"))))
+        assertEquals(listOf("style", "my.css"), styleOrder(html(items("common", "my.css"))))
+        val late = html(items("github", "common", "my.css"))
+        assertEquals(listOf("style", "style", "my.css"), styleOrder(late))
+        assertTrue(late.indexOf("max-width: 980px;") < late.indexOf("break-inside: avoid;"))
+        // `common` alone is not the default style.
+        assertFalse("body {" in html(text("common")))
     }
 
     @Test
@@ -819,7 +868,8 @@ class HighlightVariableTest {
         for (css in listOf(text("none"), items("none", "my.css"), text("my.css"))) {
             for (extra in listOf(emptyArray(), arrayOf("highlight-style" to text("monokai-sublime")))) {
                 val head = html(on, "css" to css, *extra).substringBefore("</head>")
-                assertFalse("<style>" in head, "$css $extra")
+                assertFalse("pre code.hljs" in head, "$css $extra")
+                assertFalse("pre:has" in head, "$css $extra")
             }
         }
     }
@@ -962,7 +1012,7 @@ class MermaidVariableTest {
     fun scriptsOfHighlightComeFirstAndDoNotInterfere() {
         val head = html(on, "highlight" to TemplateValue.Flag(true)).substringBefore("</head>")
         assertEquals(listOf("$base/mermaid.min.js").let { listOf("$DEFAULT_HIGHLIGHT_URL/highlight.min.js") + it }, scripts(head))
-        assertEquals(1, Regex("div\\.mermaid \\{").findAll(head).count())
+        assertEquals(1, Regex("text-align: center;").findAll(head).count())
         assertTrue(head.indexOf("hljs.getLanguage") < head.indexOf("mermaid.parse"))
     }
 
@@ -1414,12 +1464,12 @@ class MarkdownCliTest {
         fun styles(vararg args: String, input: String = "# Heading\n") =
             run("-s", *args, input = input, files = files).lines().filter { "<link" in it || "<style" in it }.map { it.trim() }
 
-        assertEquals(listOf("<style>"), styles())
+        assertEquals(listOf("<style>", "<style>"), styles())
         assertEquals(emptyList(), styles("-V", "css=none"))
-        assertEquals(listOf("<link rel=\"stylesheet\" href=\"a.css\">", "<link rel=\"stylesheet\" href=\"b.css\">"), styles("-V", "css=a.css", "-V", "css=b.css"))
-        assertEquals(listOf("<link rel=\"stylesheet\" href=\"meta.css\">"), styles("--metadata-file", "meta.yaml"))
-        assertEquals(listOf("<link rel=\"stylesheet\" href=\"doc.css\">"), styles(input = "---\ncss: doc.css\n---\n"))
-        assertEquals(listOf("<style>", "<link rel=\"stylesheet\" href=\"extra.css\">"), styles("-d", "defaults.yaml"))
+        assertEquals(listOf("<style>", "<link rel=\"stylesheet\" href=\"a.css\">", "<link rel=\"stylesheet\" href=\"b.css\">"), styles("-V", "css=a.css", "-V", "css=b.css"))
+        assertEquals(listOf("<style>", "<link rel=\"stylesheet\" href=\"meta.css\">"), styles("--metadata-file", "meta.yaml"))
+        assertEquals(listOf("<style>", "<link rel=\"stylesheet\" href=\"doc.css\">"), styles(input = "---\ncss: doc.css\n---\n"))
+        assertEquals(listOf("<style>", "<style>", "<link rel=\"stylesheet\" href=\"extra.css\">"), styles("-d", "defaults.yaml"))
         assertEquals(emptyList(), styles("-d", "defaults.yaml", "-V", "css=none"))
     }
 

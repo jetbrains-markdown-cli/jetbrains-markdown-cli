@@ -36,7 +36,7 @@ Where to look in the plugin (all under `plugins/markdown/core/src/org/intellij/p
 - `src/commonMain/kotlin/HeadingAnchors.kt`: port of the plugin's heading anchor logic.
 - `src/commonMain/kotlin/TitleBlock.kt`: the title block at the start of the `<body>` and the `<meta>` tags, like pandoc's HTML template.
 - `src/commonMain/kotlin/TableOfContents.kt`: the `<nav id="TOC">` after the title block; the entries come from `--toc`, the `toc` variable only switches the nav, like in pandoc's template.
-- `src/commonMain/kotlin/Styles.kt`: the `css` template variable: built-in style names (`none`, `default`, `intellij`, `github`, `gitlab`, `pandoc`) to `<style>`, other values to `<link>`.
+- `src/commonMain/kotlin/Styles.kt`: the `css` template variable: built-in style names (`none`, `common`, `default`, `intellij`, `github`, `gitlab`, `pandoc`) to `<style>`, other values to `<link>`. `common` (base print/image rules) is put in front of every list unless it has `none` or `common`; it is not a page style (not in `BuiltInStyles.css`), so highlight/mermaid ignore it when deriving their look from "the last built-in style".
 - `src/commonMain/kotlin/Highlight.kt`: the `highlight*` template variables: the highlight.js `<link>`s (before the `css` entries), the box rules, and the deferred `<script>`s (after).
 - `src/commonMain/kotlin/Mermaid.kt`: the `mermaid*` template variables: a `<style>` for the diagrams (before the `css` entries) and the deferred `<script>`s (after).
 - `src/commonMain/kotlin/ScriptLocation.kt`: the "directory or script URL" of `highlight-url` and `mermaid-url`.
