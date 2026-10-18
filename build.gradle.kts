@@ -45,7 +45,7 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation("org.jetbrains:markdown:0.7.17")
+            implementation("org.jetbrains:markdown:0.7.18")
             implementation("com.github.ajalt.clikt:clikt:5.1.0")
             implementation("it.krzeminski:snakeyaml-engine-kmp:5.0.0")
         }
