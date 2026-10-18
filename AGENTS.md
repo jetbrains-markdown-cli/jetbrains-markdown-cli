@@ -52,7 +52,9 @@ Where to look in the plugin (all under `plugins/markdown/core/src/org/intellij/p
   concatenated with blank lines); the output file is only written once the conversion succeeded.
 - `src/nativeMain/kotlin/Main.kt`: reads stdin and files, writes files, and runs `MarkdownCli`.
 - `src/commonTest/kotlin/MarkdownTest.kt`: tests (run on the host target).
-- `.github/workflows/build.yml`: builds all targets, smoke-tests them, publishes binaries (archives with `LICENSE` and `THIRD-PARTY`, which is also a release asset) on `v*` tags.
+- `.github/workflows/build.yml`: builds all targets, smoke-tests them, and keeps the release PR up to date with release-please. Once that PR is merged, the `release` job attaches the binaries (archives with `LICENSE` and `THIRD-PARTY`, which is also a release asset) to the release release-please created. Everything is in this one workflow because tags and releases made with `GITHUB_TOKEN` do not trigger other workflows.
+- `release-please-config.json`, `.release-please-manifest.json`: release-please (type `simple`, tags `vX.Y.Z`): the version and `CHANGELOG.md` come from the Conventional Commits on `main`, and `Version.kt` is its only extra file. The first release is forced to 1.0.0 by a `Release-As: 1.0.0` footer. Never edit the manifest or `CHANGELOG.md` by hand.
+- `.github/dependabot.yml`: weekly updates of the GitHub Actions and the Gradle dependencies/wrapper (prefixes `ci` and `build(deps)`). After a library update check `THIRD-PARTY`; the pinned font URLs are not covered.
 - `THIRD-PARTY`: the notices and license texts that the release archives must carry.
 
 All logic lives in `commonMain`; keep `nativeMain` to I/O only.
@@ -146,4 +148,6 @@ itself. Things to keep in mind there:
   styles, ported code. CI puts it, with `LICENSE`, into every release archive and attaches it to the release.
 - Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/): `type(scope): summary`
   with an imperative, lowercase summary (types such as `feat`, `fix`, `docs`, `test`, `ci`, `build`, `refactor`,
-  `chore`; scope optional). Mark breaking output changes with `!` or a `BREAKING CHANGE:` footer.
+  `chore`; scope optional). Mark breaking output changes with `!` or a `BREAKING CHANGE:` footer. release-please derives the next version and the changelog from them: `feat` is a minor, `fix` a patch,
+  `!`/`BREAKING CHANGE:` a major bump, and only `feat`, `fix` (and `perf`, `revert`) reach the changelog, so use `feat`/`fix`
+  for what users notice.

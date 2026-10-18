@@ -399,7 +399,7 @@ next to the binary and the `LICENSE`.
 
 ## Downloads
 
-Native binaries (no JVM required) are attached to each [release](../../releases), built by GitHub Actions
+Native binaries (no JVM required) are attached to each [release](../../releases) (changelog in [CHANGELOG.md](CHANGELOG.md), `jetbrains-markdown-cli --version` shows the version), built by GitHub Actions
 for every platform the Kotlin/Native toolchain and JetBrains/markdown support:
 
 | OS      | Architectures |
