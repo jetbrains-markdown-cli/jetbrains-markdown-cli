@@ -52,6 +52,7 @@ Where to look in the plugin (all under `plugins/markdown/core/src/org/intellij/p
   concatenated with blank lines); the output file is only written once the conversion succeeded.
 - `src/nativeMain/kotlin/Main.kt`: reads stdin and files, writes files, and runs `MarkdownCli`.
 - `src/commonTest/kotlin/MarkdownTest.kt`: tests (run on the host target).
+- `docs/defaults.yaml`, `docs/metadata.yaml`: the defaults and metadata file that build `README.html` from the README, see [Eat your own dogfood](#eat-your-own-dogfood).
 - `.github/workflows/build.yml`: builds all targets, smoke-tests them, and keeps the release PR up to date with release-please. Once that PR is merged, the `release` job attaches the binaries (archives with `LICENSE` and `THIRD-PARTY`, which is also a release asset) to the release release-please created. Everything is in this one workflow because tags and releases made with `GITHUB_TOKEN` do not trigger other workflows.
 - `release-please-config.json`, `.release-please-manifest.json`: release-please (type `simple`, tags `vX.Y.Z`): the version and `CHANGELOG.md` come from the Conventional Commits on `main`, and `Version.kt` is its only extra file. The first release is forced to 1.0.0 by a `Release-As: 1.0.0` footer. Never edit the manifest or `CHANGELOG.md` by hand.
 - `.github/dependabot.yml`: weekly updates of the GitHub Actions and the Gradle dependencies/wrapper (prefixes `ci` and `build(deps)`). After a library update check `THIRD-PARTY`; the pinned font URLs are not covered.
@@ -137,6 +138,31 @@ itself. Things to keep in mind there:
 - `highlight-url` is either a directory (`highlight.min.js` in it, like the `@highlightjs/cdn-assets` package, cdnjs, unpkg) or the URL of the
   script (a `.js` URL, with `styles/` next to it). The default is the unpinned official package, so it follows new major versions. Names that go into URLs are validated.
 - Check a change in a real browser (headless Chromium with `--dump-dom` and `--screenshot` works), not just by tests.
+
+## Eat your own dogfood
+
+This repository is its own example: the README is a Markdown document that is converted to HTML with this tool, using
+its own defaults file and metadata file, and no other converter. The pieces: the YAML metadata block at the top of
+`README.md` (`title`, `subtitle`, `author`, `abstract`), `docs/defaults.yaml` (input `README.md`, output `README.html`,
+`standalone`, `toc`, `highlight`, `mermaid`, and the metadata file) and `docs/metadata.yaml` (`css: github`, `lang`,
+`toc-title`). Build the page from the repository root, as the paths in a defaults file are relative to the working directory:
+
+```sh
+./build/bin/linuxX64/releaseExecutable/jetbrains-markdown-cli.kexe -d docs/defaults   # writes README.html, which is git-ignored
+```
+
+- Build the page with the freshly built binary before finishing a change that touches the output, a template variable,
+  an option, a style or the README, and look at the result (the generated HTML, and a headless Chromium screenshot for
+  styles, highlighting and diagrams). If the page breaks, the change is not done.
+- Every new option, template variable, defaults file key or built-in style that the page could use must be used there
+  (in the README's YAML block, the defaults file or the metadata file), unless it is meant to be off by default or would make
+  the page worse; the repository is the example people copy from.
+- Use only features that the tool implements. A workaround for something missing is a finding to report or fix in the
+  tool, not something to hide in the example. Keep the README renderable on GitHub and in the IDE preview as well.
+- The page is written to the repository root, so relative links of the README (`LICENSE`, `THIRD-PARTY`, ...) keep working;
+  that is why `/README.html` is in `.gitignore` and not committed.
+- `buildsAPageLikeTheReadmeOfThisRepository` in `MarkdownTest.kt` mirrors this setup in small (the tests cannot read the real files):
+  adjust it when the files in `docs/` change. CI does not build the page yet.
 
 ## Conventions
 
