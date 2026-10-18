@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/jetbrains-markdown-cli/jetbrains-markdown-cli/compare/v1.0.0...v1.1.0) (2026-10-18)
+
+
+### Features
+
+* **action:** add a GitHub Action and attach README.pdf to releases ([#8](https://github.com/jetbrains-markdown-cli/jetbrains-markdown-cli/issues/8)) ([11d29d0](https://github.com/jetbrains-markdown-cli/jetbrains-markdown-cli/commit/11d29d0970a3ad1db50c51c5ebc2e6a42b51ee9c))
+
 ## [1.0.0](https://github.com/jetbrains-markdown-cli/jetbrains-markdown-cli/compare/v0.1.0...v1.0.0) (2026-10-18)
 
 
