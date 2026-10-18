@@ -36,6 +36,7 @@ Where to look in the plugin (all under `plugins/markdown/core/src/org/intellij/p
   latest), puts it on the `PATH` and runs it with the inputs mapped to options (inputs go through `env:`, never interpolated into the scripts).
   Keep its inputs in sync with the README's *GitHub Action* section, and the asset names with the `Package` step of `build.yml`.
 - `src/commonMain/kotlin/Markdown.kt`: `markdownToHtml()`, the `Flavour` enum (commonmark/gfm/space, default = GFM, like the plugin's `MarkdownDefaultFlavour`), the flavour wrapper adding anchored headings and, with `standalone`, the document skeleton.
+- `src/commonMain/kotlin/RawHtml.kt`: `Dialect` (flavour + `rawHtml`, passed to every `render`) and the providers that show HTML blocks and tags as text with `--no-raw-html`/`raw-html: false` (pandoc's `markdown-raw_html`); `docs/changelog.yaml` needs it, as commit messages in `CHANGELOG.md` mention tags such as `<style>`.
 - `src/commonMain/kotlin/HeadingAnchors.kt`: port of the plugin's heading anchor logic.
 - `src/commonMain/kotlin/TitleBlock.kt`: the title block at the start of the `<body>` and the `<meta>` tags, like pandoc's HTML template.
 - `src/commonMain/kotlin/TableOfContents.kt`: the `<nav id="TOC">` after the title block; the entries come from `--toc`, the `toc` variable only switches the nav, like in pandoc's template.

@@ -68,8 +68,9 @@ The two `<style>`s (abbreviated here) are the [`common` rules and the default st
 | `--toc`, `--table-of-contents` | Add a [table of contents](#table-of-contents) of the headings after the title block (with `--standalone`, as in pandoc) |
 | `--toc-depth=NUMBER`           | The heading levels the table of contents covers, 1 to 6 (default 3) |
 | `-f`, `--flavour=...`          | Markdown flavour: `gfm` (default, GitHub Flavored Markdown like IntelliJ's Markdown plugin), `commonmark` (plain CommonMark) or `space` (JetBrains Space) |
+| `--raw-html`, `--no-raw-html`  | HTML in the Markdown (blocks and tags in the text, also in the values of variables) is passed on to the output, which is what Markdown does and the default, or with `--no-raw-html` shown as text, like pandoc's `-f markdown-raw_html`: HTML blocks become paragraphs, and a `<style>` in a sentence cannot hide the rest of the page. Use it for text that only mentions tags, such as a changelog, and for untrusted Markdown |
 | `-V`, `--variable=KEY[=VAL]`   | Set a template variable like `pandoc --variable`: without a value it is `true`, repeating a key makes a list. Can be repeated |
-| `-d`, `--defaults=FILE`        | Read options from a YAML defaults file like `pandoc --defaults` (`input-files`, `output-file`, `standalone`, `flavour`, `toc` or `table-of-contents`, `toc-depth`, `variables`, `metadata`, `metadata-files`; other keys are ignored with a warning). `FILE.yaml` is found as `FILE`. Can be repeated, later files override earlier ones, the command line overrides them all (input files on the command line replace those of defaults files, like in pandoc) |
+| `-d`, `--defaults=FILE`        | Read options from a YAML defaults file like `pandoc --defaults` (`input-files`, `output-file`, `standalone`, `flavour`, `toc` or `table-of-contents`, `toc-depth`, `raw-html`, `variables`, `metadata`, `metadata-files`; other keys are ignored with a warning). `FILE.yaml` is found as `FILE`. Can be repeated, later files override earlier ones, the command line overrides them all (input files on the command line replace those of defaults files, like in pandoc) |
 | `--metadata-file=FILE`         | Read metadata (a YAML mapping) from `FILE`. Can be repeated, later files override earlier ones |
 | `-v`, `--version`              | Show the version and exit; `--help` shows it too |
 | `-h`, `--help`                 | Show the help and exit |
@@ -389,7 +390,7 @@ pandoc is much bigger, this tool only converts Markdown to HTML:
   `--mathjax`/`--katex`, `--filter`/`--lua-filter`, `--citeproc`, `--file-scope`, `--resource-path` or `--self-contained`.
   Keys of a [defaults file](#options) that are not supported are ignored with a warning.
 - **Other formats**: Markdown is the only input and HTML the only output; no `-f`/`-t` selection of formats and no
-  `--extension` switches (`-f` here selects the JetBrains Markdown flavour).
+  `--extension` switches (`-f` here selects the JetBrains Markdown flavour; only `raw_html` has its own option, `--no-raw-html`).
 - **Markdown dialect**: the parser is JetBrains/markdown (CommonMark/GFM), not pandoc's Markdown. pandoc extensions such
   as footnotes, definition lists, `smart` typography, citations, attributes (`{#id .class}`), fenced divs and
   `tex_math_dollars` are not supported.

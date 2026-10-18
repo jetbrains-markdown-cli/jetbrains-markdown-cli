@@ -122,6 +122,8 @@ jobs:
           [[ "$out" == *'<code class="language-mermaid">'* && "$out" == *'mermaid/dist/mermaid.min.js" defer></script>'* ]]
           out=$(printf '# Hello\n' | build/bin/${{ matrix.binDir }}/releaseExecutable/${{ matrix.exe }} --standalone)
           [[ "$out" != *"highlight.min.js"* && "$out" != *"mermaid.min.js"* ]]
+          out=$(printf 'a <b>x</b>\n' | build/bin/${{ matrix.binDir }}/releaseExecutable/${{ matrix.exe }} --no-raw-html)
+          [[ "$out" == *'<p>a &lt;b&gt;x&lt;/b&gt;</p>'* ]]
           printf '# One\n' > one.md
           printf 'two\n' | build/bin/${{ matrix.binDir }}/releaseExecutable/${{ matrix.exe }} one.md - -o out.html
           [[ "$(cat out.html)" == *"<h1 id=\"one\">One</h1>"* && "$(cat out.html)" == *"<p>two</p>"* ]]
@@ -187,6 +189,8 @@ jobs:
           [[ "$out" == *'<code class="language-mermaid">'* && "$out" == *'mermaid/dist/mermaid.min.js" defer></script>'* ]]
           out=$(printf '# Hello\n' | jetbrains-markdown-cli-linux-arm64/jetbrains-markdown-cli --standalone)
           [[ "$out" != *"highlight.min.js"* && "$out" != *"mermaid.min.js"* ]]
+          out=$(printf 'a <b>x</b>\n' | jetbrains-markdown-cli-linux-arm64/jetbrains-markdown-cli --no-raw-html)
+          [[ "$out" == *'<p>a &lt;b&gt;x&lt;/b&gt;</p>'* ]]
           printf '# One\n' > one.md
           printf 'two\n' | jetbrains-markdown-cli-linux-arm64/jetbrains-markdown-cli one.md - -o out.html
           [[ "$(cat out.html)" == *"<h1 id=\"one\">One</h1>"* && "$(cat out.html)" == *"<p>two</p>"* ]]
