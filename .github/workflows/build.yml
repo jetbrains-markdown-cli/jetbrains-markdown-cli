@@ -15,7 +15,7 @@ jobs:
   # same workflow because tags and releases created with GITHUB_TOKEN do not trigger other workflows.
   release-please:
     name: Release PR
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -24,6 +24,7 @@ jobs:
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
+      sha: ${{ steps.release.outputs.sha }}
     steps:
       - uses: googleapis/release-please-action@v5
         id: release
@@ -247,6 +248,37 @@ jobs:
         shell: bash
         run: '[[ "$(cat from-defaults.html)" == *"<em>markdown</em>"* ]]'
 
+  # Merges the release PR once everything on main is green, so every feat/fix is released without a manual step.
+  # The merge is a push made with GITHUB_TOKEN, which does not start a workflow run (workflow_dispatch is the one
+  # event it can start), so this workflow is dispatched again: that run finds the merged PR, makes the release,
+  # and the release job attaches the binaries.
+  merge-release:
+    name: Merge release PR
+    if: github.event_name == 'push' && needs.release-please.outputs.release_created != 'true'
+    needs: [release-please, build, test-linux-arm64, test-action]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Merge the release PR and run this workflow again to release it
+        run: |
+          pr=$(gh pr list --repo "$GITHUB_REPOSITORY" --label 'autorelease: pending' --state open --json number --jq '.[0].number // empty')
+          if [ -z "$pr" ]; then
+            echo "No release PR is open."
+            exit 0
+          fi
+          # A newer push has its own run, which updates the PR again and merges it if that run is green.
+          if [ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" != "$GITHUB_SHA" ]; then
+            echo "main has moved on since this run started; leaving release PR #$pr to the run of the newer commit."
+            exit 0
+          fi
+          gh pr merge "$pr" --squash --repo "$GITHUB_REPOSITORY"
+          gh workflow run build.yml --ref main --repo "$GITHUB_REPOSITORY"
+
   release:
     name: Release
     if: needs.release-please.outputs.release_created == 'true'
@@ -258,6 +290,12 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       TAG: ${{ needs.release-please.outputs.tag_name }}
     steps:
+      # A dispatched run builds the tip of main, which could have moved on since the release PR was merged.
+      - name: Check that the binaries are built from the released commit
+        env:
+          RELEASE_SHA: ${{ needs.release-please.outputs.sha }}
+        run: '[ "$RELEASE_SHA" = "$GITHUB_SHA" ]'
+
       - uses: actions/checkout@v7
 
       - uses: actions/download-artifact@v8
