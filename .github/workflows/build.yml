@@ -193,8 +193,12 @@ jobs:
 
   # The action (action.yml) downloads the binaries of the latest release, so this runs it against what is released,
   # not against the commit under test, on every platform it supports.
+  # Tests the action against the latest release. In a run that has just made a release that is the new one, which has
+  # no binaries until the release job has attached them, so such a run does not test it (the run before did).
   test-action:
     name: test action (${{ matrix.os }})
+    if: ${{ !cancelled() && needs.release-please.outputs.release_created != 'true' }}
+    needs: release-please
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -282,7 +286,7 @@ jobs:
   release:
     name: Release
     if: needs.release-please.outputs.release_created == 'true'
-    needs: [release-please, build, test-linux-arm64, test-action]
+    needs: [release-please, build, test-linux-arm64]
     runs-on: ubuntu-latest
     permissions:
       contents: write
