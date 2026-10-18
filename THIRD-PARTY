@@ -21,7 +21,7 @@ executable (no separate files are shipped).
   --------------------------------  -------  ----------  --------------------------------------------
   Kotlin standard library           2.4.21   Apache-2.0  https://github.com/JetBrains/kotlin
   Kotlin/Native runtime             2.4.21   Apache-2.0  https://github.com/JetBrains/kotlin  (see 4.)
-  JetBrains Markdown                0.7.16   Apache-2.0  https://github.com/JetBrains/markdown
+  JetBrains Markdown                0.7.17   Apache-2.0  https://github.com/JetBrains/markdown
   Clikt (clikt, clikt-core)         5.1.0    Apache-2.0  https://github.com/ajalt/clikt
   Mordant (mordant, mordant-core)   3.0.2    Apache-2.0  https://github.com/ajalt/mordant
   Colormath                         3.6.0    MIT         https://github.com/ajalt/colormath
