@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/jetbrains-markdown-cli/jetbrains-markdown-cli/compare/v1.1.0...v1.2.0) (2026-10-18)
+
+
+### Features
+
+* **image:** add a container image and publish it to ghcr ([#10](https://github.com/jetbrains-markdown-cli/jetbrains-markdown-cli/issues/10)) ([a15f7d3](https://github.com/jetbrains-markdown-cli/jetbrains-markdown-cli/commit/a15f7d319daf36003036624b108ec7335ae40668))
+
 ## [1.1.0](https://github.com/jetbrains-markdown-cli/jetbrains-markdown-cli/compare/v1.0.0...v1.1.0) (2026-10-18)
 
 
