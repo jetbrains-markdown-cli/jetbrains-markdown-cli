@@ -1,0 +1,168 @@
+name: Markdown to HTML (jetbrains-markdown-cli)
+description: >-
+  Converts Markdown files to HTML with jetbrains-markdown-cli, like the JetBrains IDEs do in their Markdown preview,
+  and leaves the tool on the PATH for later steps.
+author: jetbrains-markdown-cli
+branding:
+  icon: file-text
+  color: purple
+
+inputs:
+  input-files:
+    description: >-
+      The Markdown files to convert, one per line (concatenated in this order, with blank lines between them).
+      Needed unless a defaults file names them.
+    required: false
+    default: ''
+  output-file:
+    description: The HTML file to write. Needed unless a defaults file names it, otherwise the HTML goes to the log.
+    required: false
+    default: ''
+  defaults:
+    description: Defaults files (`--defaults`), one per line, like `docs/defaults`. Later ones override earlier ones.
+    required: false
+    default: ''
+  metadata-files:
+    description: Metadata files (`--metadata-file`), one per line.
+    required: false
+    default: ''
+  standalone:
+    description: Produce a complete HTML document (`--standalone`), `true` or `false`.
+    required: false
+    default: 'true'
+  toc:
+    description: Add a table of contents (`--toc`), `true` or `false`.
+    required: false
+    default: 'false'
+  toc-depth:
+    description: The heading levels of the table of contents, 1 to 6 (`--toc-depth`). The tool's default if empty.
+    required: false
+    default: ''
+  flavour:
+    description: The Markdown flavour (`--flavour`), `gfm`, `commonmark` or `space`. The tool's default (`gfm`) if empty.
+    required: false
+    default: ''
+  variables:
+    description: >-
+      Template variables (`--variable`), one `KEY` or `KEY=VALUE` per line, e.g. `css=github`, `highlight` or `mermaid`.
+    required: false
+    default: ''
+  args:
+    description: More command line arguments, one per line (no quoting, a line is one argument).
+    required: false
+    default: ''
+  version:
+    description: The release of jetbrains-markdown-cli to use, e.g. `1.0.0` or `v1.0.0`, or `latest`.
+    required: false
+    default: latest
+  working-directory:
+    description: The directory the paths of the other inputs are relative to.
+    required: false
+    default: '.'
+
+outputs:
+  output-file:
+    description: The `output-file` input, as given (empty if the output file comes from a defaults file).
+    value: ${{ inputs.output-file }}
+  version:
+    description: The version of jetbrains-markdown-cli that was run.
+    value: ${{ steps.install.outputs.version }}
+
+runs:
+  using: composite
+  steps:
+    # Downloads the release archive of the runner's platform into a new directory and puts it on the PATH.
+    - name: Install jetbrains-markdown-cli
+      id: install
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+        if [[ ! "$VERSION" =~ ^(latest|v?[0-9][0-9A-Za-z.+-]*)$ ]]; then
+          echo "::error::Invalid version '$VERSION': use latest or a release like 1.0.0"
+          exit 1
+        fi
+        case "$RUNNER_OS-$RUNNER_ARCH" in
+          Linux-X64)    platform=linux-amd64;   ext=tar.gz ;;
+          Linux-ARM64)  platform=linux-arm64;   ext=tar.gz ;;
+          macOS-X64)    platform=macos-amd64;   ext=tar.gz ;;
+          macOS-ARM64)  platform=macos-arm64;   ext=tar.gz ;;
+          Windows-X64)  platform=windows-amd64; ext=zip ;;
+          *) echo "::error::jetbrains-markdown-cli has no binary for $RUNNER_OS $RUNNER_ARCH"; exit 1 ;;
+        esac
+        base=https://github.com/jetbrains-markdown-cli/jetbrains-markdown-cli/releases
+        if [[ "$VERSION" == latest ]]; then
+          url=$base/latest/download/jetbrains-markdown-cli-$platform.$ext
+        else
+          url=$base/download/v${VERSION#v}/jetbrains-markdown-cli-$platform.$ext
+        fi
+        dir=$(mktemp -d "$RUNNER_TEMP/jetbrains-markdown-cli.XXXXXX")
+        echo "Downloading $url"
+        curl --fail --silent --show-error --location --retry 3 --output "$dir/archive.$ext" "$url"
+        mkdir "$dir/extracted"
+        if [[ "$ext" == zip ]]; then
+          7z x -y "-o$dir/extracted" "$dir/archive.$ext" > /dev/null
+        else
+          tar -xzf "$dir/archive.$ext" -C "$dir/extracted"
+        fi
+        bin=$dir/extracted/jetbrains-markdown-cli-$platform
+        if [[ "$RUNNER_OS" == Windows ]]; then
+          echo "$(cygpath -w "$bin")" >> "$GITHUB_PATH"
+        else
+          echo "$bin" >> "$GITHUB_PATH"
+        fi
+        # Printed from the binary itself, so that "latest" shows what it resolved to.
+        installed=$("$bin/jetbrains-markdown-cli" --version)
+        echo "$installed"
+        echo "version=${installed##* }" >> "$GITHUB_OUTPUT"
+
+    - name: Convert
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        INPUT_FILES: ${{ inputs.input-files }}
+        OUTPUT_FILE: ${{ inputs.output-file }}
+        DEFAULTS: ${{ inputs.defaults }}
+        METADATA_FILES: ${{ inputs.metadata-files }}
+        STANDALONE: ${{ inputs.standalone }}
+        TOC: ${{ inputs.toc }}
+        TOC_DEPTH: ${{ inputs.toc-depth }}
+        FLAVOUR: ${{ inputs.flavour }}
+        VARIABLES: ${{ inputs.variables }}
+        EXTRA_ARGS: ${{ inputs.args }}
+      run: |
+        set -euo pipefail
+        # The lines of a multi-line input, without the carriage returns of Windows, and without blank ones.
+        lines() { printf '%s\n' "$1" | tr -d '\r' | sed '/^[[:space:]]*$/d'; }
+        flag() { # NAME VALUE FLAG
+          case "$2" in
+            true) args+=("$3") ;;
+            false|'') ;;
+            *) echo "::error::$1 must be true or false, not '$2'"; exit 1 ;;
+          esac
+        }
+        args=()
+        flag standalone "$STANDALONE" --standalone
+        flag toc "$TOC" --toc
+        [[ -z "$TOC_DEPTH" ]] || args+=(--toc-depth "$TOC_DEPTH")
+        [[ -z "$FLAVOUR" ]] || args+=(--flavour "$FLAVOUR")
+        if [[ -n "$OUTPUT_FILE" ]]; then
+          mkdir -p "$(dirname "$OUTPUT_FILE")" # the tool, like pandoc, does not create directories
+          args+=(--output "$OUTPUT_FILE")
+        fi
+        while IFS= read -r line; do args+=(--defaults "$line"); done < <(lines "$DEFAULTS")
+        while IFS= read -r line; do args+=(--metadata-file "$line"); done < <(lines "$METADATA_FILES")
+        while IFS= read -r line; do args+=(--variable "$line"); done < <(lines "$VARIABLES")
+        while IFS= read -r line; do args+=("$line"); done < <(lines "$EXTRA_ARGS")
+        # The input files come last, so that a file named like an option cannot be taken for one.
+        files=()
+        while IFS= read -r line; do files+=("$line"); done < <(lines "$INPUT_FILES")
+        if [[ ${#files[@]} -eq 0 && -z "$DEFAULTS" ]]; then
+          echo "::error::Set input-files, or defaults with input-files in it"
+          exit 1
+        fi
+        [[ ${#files[@]} -eq 0 ]] || args+=(-- "${files[@]}")
+        # ${args[@]+...}: an empty array is an error with set -u in the bash 3.2 of macOS.
+        echo "jetbrains-markdown-cli ${args[@]+"${args[@]}"}"
+        jetbrains-markdown-cli ${args[@]+"${args[@]}"}

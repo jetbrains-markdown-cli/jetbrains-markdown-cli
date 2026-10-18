@@ -32,6 +32,9 @@ Where to look in the plugin (all under `plugins/markdown/core/src/org/intellij/p
 
 ## Layout
 
+- `action.yml`: the composite GitHub Action for other repositories: downloads the release binary of the runner's platform (`version` input, default
+  latest), puts it on the `PATH` and runs it with the inputs mapped to options (inputs go through `env:`, never interpolated into the scripts).
+  Keep its inputs in sync with the README's *GitHub Action* section, and the asset names with the `Package` step of `build.yml`.
 - `src/commonMain/kotlin/Markdown.kt`: `markdownToHtml()`, the `Flavour` enum (commonmark/gfm/space, default = GFM, like the plugin's `MarkdownDefaultFlavour`), the flavour wrapper adding anchored headings and, with `standalone`, the document skeleton.
 - `src/commonMain/kotlin/HeadingAnchors.kt`: port of the plugin's heading anchor logic.
 - `src/commonMain/kotlin/TitleBlock.kt`: the title block at the start of the `<body>` and the `<meta>` tags, like pandoc's HTML template.
@@ -53,7 +56,7 @@ Where to look in the plugin (all under `plugins/markdown/core/src/org/intellij/p
 - `src/nativeMain/kotlin/Main.kt`: reads stdin and files, writes files, and runs `MarkdownCli`.
 - `src/commonTest/kotlin/MarkdownTest.kt`: tests (run on the host target).
 - `docs/defaults.yaml`, `docs/metadata.yaml`: the defaults and metadata file that build `README.html` from the README, see [Eat your own dogfood](#eat-your-own-dogfood).
-- `.github/workflows/build.yml`: builds all targets, smoke-tests them, and keeps the release PR up to date with release-please. Once that PR is merged, the `release` job attaches the binaries (archives with `LICENSE` and `THIRD-PARTY`, which is also a release asset) to the release release-please created. Everything is in this one workflow because tags and releases made with `GITHUB_TOKEN` do not trigger other workflows.
+- `.github/workflows/build.yml`: builds all targets, smoke-tests them, and keeps the release PR up to date with release-please. Once that PR is merged, the `release` job attaches the binaries (archives with `LICENSE` and `THIRD-PARTY`, which is also a release asset) to the release release-please created. The `test-action` job runs `action.yml` on all three OSes against the latest release; the `release` job also moves the major tag (`v1`) that `uses: ...@v1` resolves to, and builds the README as HTML with the action (`docs/defaults`) and as PDF with Chrome, attached as `README.pdf`. Everything is in this one workflow because tags and releases made with `GITHUB_TOKEN` do not trigger other workflows.
 - `release-please-config.json`, `.release-please-manifest.json`: release-please (type `simple`, tags `vX.Y.Z`): the version and `CHANGELOG.md` come from the Conventional Commits on `main`, and `Version.kt` is its only extra file. The first release is forced to 1.0.0 by a `Release-As: 1.0.0` footer. Never edit the manifest or `CHANGELOG.md` by hand.
 - `.github/dependabot.yml`: weekly updates of the GitHub Actions and the Gradle dependencies/wrapper (prefixes `ci` and `build(deps)`). After a library update check `THIRD-PARTY`; the pinned font URLs are not covered.
 - `THIRD-PARTY`: the notices and license texts that the release archives must carry.

@@ -412,6 +412,69 @@ jetbrains-markdown-cli -d docs/defaults                  # writes README.html (n
 jetbrains-markdown-cli -d docs/defaults -V css=gitlab    # -V beats the metadata file: the same page in the GitLab style
 ```
 
+## GitHub Action
+
+The repository is also a GitHub Action, so a workflow can convert Markdown to HTML without building anything: it downloads the
+binary of a [release](../../releases) for the runner (Linux, macOS and Windows, amd64 and arm64 where the
+[downloads](#downloads) exist), runs it, and leaves `jetbrains-markdown-cli` on the `PATH` for the steps after it.
+
+```yaml
+name: Docs
+on:
+  push:
+    branches: [main]
+
+jobs:
+  pages:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Convert the README to HTML
+        uses: jetbrains-markdown-cli/jetbrains-markdown-cli@v1
+        with:
+          input-files: README.md
+          output-file: public/index.html
+          toc: true
+          variables: |
+            css=github
+            highlight
+            mermaid
+
+      # Chrome is on the runner. The virtual time budget gives highlight.js and Mermaid, which the page loads from
+      # a CDN, time to run before the page is printed.
+      - name: Print the HTML to PDF
+        run: |
+          google-chrome --headless --no-sandbox --no-pdf-header-footer --virtual-time-budget=30000 \
+            --print-to-pdf=public/README.pdf "file://$PWD/public/index.html"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: docs
+          path: public
+```
+
+The same two steps, with a defaults file, run in this repository's own release workflow (`.github/workflows/build.yml`):
+`README.pdf` is [attached to every release](../../releases) next to the binaries, made from the page of
+[Building this page](#building-this-page).
+
+| Input | Meaning |
+|-------|---------|
+| `input-files` | The Markdown files, one per line; they are concatenated like on the command line. Needed unless a defaults file names them |
+| `output-file` | The HTML file to write (its directory is created). Needed unless a defaults file names it, otherwise the HTML goes to the log |
+| `defaults`, `metadata-files` | [Defaults files](#options) and metadata files, one per line |
+| `standalone` | `true` (default) for a complete document, `false` for just the content |
+| `toc`, `toc-depth`, `flavour` | The options of the same name |
+| `variables` | [Template variables](#template-variables), one `KEY` or `KEY=VALUE` per line |
+| `args` | More command line arguments, one per line |
+| `version` | The release to use: `1.0.0`, `v1.0.0` or `latest` (default) |
+| `working-directory` | The directory the paths of the other inputs are relative to (default `.`) |
+
+The outputs are `output-file` (as given) and `version` (the version that ran). `@v1` is the latest release `1.x`, which every
+release moves; use `@v1.2.3` or a commit to pin the action itself, and `version` to pin the binary, which is otherwise the
+latest release no matter which version of the action runs. Untrusted Markdown needs the precautions
+of [`highlight`](#syntax-highlighting) and [`mermaid`](#diagrams) as well.
+
 ## Licenses
 
 This project is licensed under the [Apache License 2.0](LICENSE). The binaries contain the libraries it is built with
