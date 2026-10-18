@@ -1,3 +1,13 @@
+---
+title: jetbrains-markdown-cli
+subtitle: Markdown to HTML, like the JetBrains IDEs, without an IDE
+author: Matthias Blümel
+abstract: |
+  A command line replacement for `pandoc` that converts Markdown to HTML with the
+  [JetBrains/markdown](https://github.com/JetBrains/markdown) library.
+  This page is the README, converted by the tool itself, see [Building this page](#building-this-page).
+---
+
 # jetbrains-markdown-cli
 
 A replacement for [pandoc](https://pandoc.org/) for converting Markdown to HTML, built on the
@@ -386,6 +396,21 @@ pandoc is much bigger, this tool only converts Markdown to HTML:
 - **Output**: differs in details from pandoc's, e.g. the heading `id`s, the indentation, and the code fence markup
   (`<pre><code class="language-xyz">` instead of pandoc's `<div class="sourceCode">` with highlighting spans). The `<head>` has no
   `generator`, `viewport` or `description` `<meta>` and the `<html>` element no `xmlns`/`xml:lang`.
+
+## Building this page
+
+The repository documents itself with itself. The README starts with a YAML metadata block (`title`, `subtitle`,
+`author`, `abstract`), which is not part of the output and fills the title block of the standalone page.
+[`docs/defaults.yaml`](docs/defaults.yaml) is a [defaults file](#options) that names the README as input and
+`README.html` as output, turns on `--standalone`, `--toc`, [`highlight`](#syntax-highlighting) and
+[`mermaid`](#diagrams), and points to [`docs/metadata.yaml`](docs/metadata.yaml), a metadata file that sets the
+`github` [style](#styles), `lang` and `toc-title`. Run it from the repository root, the paths in a defaults file are
+relative to the working directory:
+
+```sh
+jetbrains-markdown-cli -d docs/defaults                  # writes README.html (not committed), links in it keep working
+jetbrains-markdown-cli -d docs/defaults -V css=gitlab    # -V beats the metadata file: the same page in the GitLab style
+```
 
 ## Licenses
 

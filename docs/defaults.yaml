@@ -1,0 +1,14 @@
+# Builds README.html from README.md with this tool: jetbrains-markdown-cli -d docs/defaults
+# Run it from the repository root, the paths are relative to the working directory.
+input-files:
+  - README.md
+output-file: README.html
+standalone: true
+toc: true
+toc-depth: 3
+flavour: gfm
+metadata-files:
+  - docs/metadata.yaml
+variables:
+  highlight: true
+  mermaid: true

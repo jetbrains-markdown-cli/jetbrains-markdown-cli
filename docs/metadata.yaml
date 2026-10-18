@@ -1,0 +1,5 @@
+# Metadata of the README page, read with `metadata-files:` of defaults.yaml (the lowest layer of template variables:
+# the YAML block in README.md, `metadata:` of the defaults file and -V override it).
+lang: en
+css: github
+toc-title: Contents

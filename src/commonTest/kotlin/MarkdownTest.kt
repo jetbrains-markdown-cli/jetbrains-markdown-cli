@@ -1425,6 +1425,35 @@ class MarkdownCliTest {
         assertFailsWith<CliktError> { run("-d", "d.yaml", files = files - "a.yaml") }
     }
 
+    /** The setup of the repository's own page (`docs/defaults.yaml`, `docs/metadata.yaml` and the YAML block of `README.md`), in small. */
+    @Test
+    fun buildsAPageLikeTheReadmeOfThisRepository() {
+        val files = mapOf(
+            "README.md" to "---\ntitle: The tool\nsubtitle: Does *things*\nauthor: Ann\nabstract: |\n  About `it`.\n---\n\n# The tool\n\n## Usage\n\n" +
+                "```sh\nrun it\n```\n\n```mermaid\ngraph TD\n  A --> B\n```\n",
+            "docs/defaults.yaml" to "input-files: [README.md]\noutput-file: README.html\nstandalone: true\ntoc: true\ntoc-depth: 3\nflavour: gfm\n" +
+                "metadata-files: [docs/metadata.yaml]\nvariables:\n  highlight: true\n  mermaid: true\n",
+            "docs/metadata.yaml" to "lang: en\ncss: github\ntoc-title: Contents\ntitle: Overridden by the document\n",
+        )
+        val (stdout, written) = runWithFiles("-d", "docs/defaults", files = files)
+        assertEquals("", stdout)
+        assertEquals(setOf("README.html"), written.keys)
+        val html = written.getValue("README.html")
+        assertContains(html, "<html lang=\"en\">")
+        assertContains(html, "<title>The tool</title>")
+        assertContains(html, "<h1 class=\"title\">The tool</h1>")
+        assertContains(html, "<p class=\"subtitle\">Does <em>things</em></p>")
+        assertContains(html, "<p class=\"author\">Ann</p>")
+        assertContains(html, "<h2 id=\"toc-title\">Contents</h2>")
+        assertContains(html, "<a href=\"#usage\" id=\"toc-usage\">Usage</a>")
+        assertContains(html, "<h1 id=\"the-tool\">The tool</h1>")
+        // The metadata file is the lowest layer and github the page style; the command line beats it.
+        assertContains(html, "Based on github-markdown-css")
+        assertContains(html, "highlight.min.js")
+        assertContains(html, "mermaid.min.js")
+        assertFalse("Based on github-markdown-css" in runWithFiles("-d", "docs/defaults", "-V", "css=none", files = files).second.getValue("README.html"))
+    }
+
     @Test
     fun rejectsMissingOrInvalidDefaultsFile() {
         val missing = assertFailsWith<CliktError> { run("-d", "nope.yaml") }
