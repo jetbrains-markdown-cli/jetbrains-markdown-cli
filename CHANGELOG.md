@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.1](https://github.com/jetbrains-markdown-cli/jetbrains-markdown-cli/compare/v1.2.0...v1.2.1) (2026-10-18)
+
+
+### Bug Fixes
+
+* **action:** shorten the description for the marketplace ([#12](https://github.com/jetbrains-markdown-cli/jetbrains-markdown-cli/issues/12)) ([2e67b17](https://github.com/jetbrains-markdown-cli/jetbrains-markdown-cli/commit/2e67b17038b823b9fc0b2a6b1ff754d15cd72bfa))
+
 ## [1.2.0](https://github.com/jetbrains-markdown-cli/jetbrains-markdown-cli/compare/v1.1.0...v1.2.0) (2026-10-18)
 
 
