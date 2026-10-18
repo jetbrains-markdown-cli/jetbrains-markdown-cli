@@ -1496,6 +1496,36 @@ class MarkdownCliTest {
     }
 
     @Test
+    fun buildsAPageLikeTheChangelogOfThisRepository() {
+        val files = mapOf(
+            "CHANGELOG.md" to "# Changelog\n\n## [1.1.0](https://example.com/compare) (2026-02-01)\n\n### Features\n\n* add [a thing](https://example.com/c) ([abc](https://example.com/abc))\n\n" +
+                "## [1.0.0](https://example.com/compare) (2026-01-01)\n\n### \u26A0 BREAKING CHANGES\n\n* one more <style> element, and no <body>; the headings are like <h1 id=\"hello\">.\n",
+            "docs/changelog.yaml" to "input-files: [CHANGELOG.md]\noutput-file: CHANGELOG.html\nstandalone: true\ntoc: true\ntoc-depth: 2\nflavour: gfm\nraw-html: false\n" +
+                "metadata:\n  lang: en\nvariables:\n  css: gitlab\n",
+        )
+        val (stdout, written) = runWithFiles("-d", "docs/changelog", files = files)
+        assertEquals("", stdout)
+        assertEquals(setOf("CHANGELOG.html"), written.keys)
+        val html = written.getValue("CHANGELOG.html")
+        assertContains(html, "<html lang=\"en\">")
+        // No title variable: the title is the first heading, and there is no title block.
+        assertContains(html, "<title>Changelog</title>")
+        assertFalse("<header id=\"title-block-header\">" in html)
+        assertContains(html, "<h1 id=\"changelog\">Changelog</h1>")
+        // The table of contents goes down to the versions (depth 2), not to "Features" (level 3), and drops the link of the heading.
+        assertContains(html, "<nav id=\"TOC\" role=\"doc-toc\">")
+        assertContains(html, "id=\"toc-110-2026-02-01\">1.1.0 (2026-02-01)</a>")
+        assertContains(html, "id=\"toc-100-2026-01-01\">1.0.0 (2026-01-01)</a>")
+        assertFalse("id=\"toc-features\"" in html)
+        assertContains(html, "<h3 id=\"features\">Features</h3>")
+        // HTML in the text of an entry is shown, and does not swallow the rest of the page (a <style> would).
+        assertContains(html, "one more &lt;style&gt; element, and no &lt;body&gt;; the headings are like &lt;h1 id=&quot;hello&quot;&gt;.")
+        assertFalse("<style> element" in html || "<body>;" in html || "<h1 id=\"hello\">" in html, html)
+        assertContains(html, "GitLab")
+        assertFalse("highlight.min.js" in html || "mermaid.min.js" in html)
+    }
+
+    @Test
     fun rejectsMissingOrInvalidDefaultsFile() {
         val missing = assertFailsWith<CliktError> { run("-d", "nope.yaml") }
         assertContains(missing.message.orEmpty(), "nope.yaml")
