@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.2](https://github.com/jetbrains-markdown-cli/jetbrains-markdown-cli/compare/v1.2.1...v1.2.2) (2026-10-18)
+
+
+### Bug Fixes
+
+* **styles:** match GitLab's Mermaid and code highlight themes for css=gitlab ([550e1e9](https://github.com/jetbrains-markdown-cli/jetbrains-markdown-cli/commit/550e1e96f687abff2f7a947d29c76b2fbed31f43))
+
 ## [1.2.1](https://github.com/jetbrains-markdown-cli/jetbrains-markdown-cli/compare/v1.2.0...v1.2.1) (2026-10-18)
 
 
